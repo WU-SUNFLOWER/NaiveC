@@ -2,10 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "llvmP debug",
+            "name": "NaiveC Debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/NavieC",
+            "program": "${workspaceFolder}/bin/NaiveC",
             "args": [
                 
             ],

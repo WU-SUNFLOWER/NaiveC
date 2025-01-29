@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 
-project(NavieC)
+project(NaiveC)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 17)
@@ -22,4 +22,4 @@ endif()
 
 set(LLVM_LINK_COMPONENTS Support Core)
 
-add_llvm_executable(${PROJECT_NAME} main.cc)
+add_llvm_executable(${PROJECT_NAME} main.cc lexer.cc parser.cc)

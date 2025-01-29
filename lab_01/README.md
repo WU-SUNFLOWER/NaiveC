@@ -6,7 +6,7 @@ We can use LLVM to interpret this IR file, and LLVM will print a string "Hello, 
 
 ```shell
 # Output IR file
-./bin/NavieC > test.ll
+./bin/NaiveC > test.ll
 
 # Print "Hello, NaiveC"
 ../../build-llvm/llvm_install_dir/bin/lli test.ll

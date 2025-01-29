@@ -1,13 +1,13 @@
-# Lab_01 Hello NaiveC
+# Lab_02 Build a Minimalist Compiler Without Variables
 
-In this lab, I finished my first program based on LLVM, which can output a `.ll` IR file.
-
-We can use LLVM to interpret this IR file, and LLVM will print a string "Hello, NaiveC".
-
-```shell
-# Output IR file
-./bin/NavieC > test.ll
-
-# Print "Hello, NaiveC"
-../../build-llvm/llvm_install_dir/bin/lli test.ll
+The goal of this lab is to build a minimalist compiler without variables, which can compute some simple expressions like this:
 ```
+1+3;
+3*(4-3)+5*4;
+100/25*4;
+``` 
+
+To achieve this goal, I broke it into these small tasks and finished them step by step:
+- Implement a **Lexer**, which can read **the text file** and convert it into **token stream**.
+- Implement a **Parser**, which can convert token stream into **abstract syntax tree**.
+- Implement a **Code Generator**, which can convert abstract syntax tree into **LLVM IR**, and let LLVM to interpret it.

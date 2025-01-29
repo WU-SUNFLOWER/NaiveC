@@ -1,58 +1,37 @@
+// Copyright 2024 WU-SUNFLOWER. All rights reserved.
+// Use of this source code is governed by a GPL-style license that can be
+// found in the LICENSE file.
+
+#include <utility>
+#include <memory>
 #include <iostream>
 
-#include "llvm/IR/Module.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/IR/Verifier.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/ErrorOr.h"
 
-int main() {
-    llvm::LLVMContext context;
-    llvm::Module module("My First Module", context);
-    llvm::IRBuilder ir_builder(context);
+#include "lexer.h"
 
-    llvm::FunctionType* puts_func_type = llvm::FunctionType::get(
-                                                ir_builder.getInt32Ty(),
-                                                { ir_builder.getInt8PtrTy() },
-                                                false);
-    llvm::Function* puts_func = llvm::Function::Create(
-                                        puts_func_type, 
-                                        llvm::GlobalValue::LinkageTypes::ExternalLinkage, 
-                                        "puts", 
-                                        module);
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        llvm::errs() << "Please input filename!\n";
+        return -1;
+    }
 
-    llvm::Constant* str = llvm::ConstantDataArray::getString(context, "Hello, NaiveC");
-    llvm::GlobalVariable* global_var = new llvm::GlobalVariable(
-                            module,
-                            str->getType(),
-                            true,
-                            llvm::GlobalValue::LinkageTypes::PrivateLinkage,
-                            str,
-                            "kString");
+    const char* file_name = argv[1];
+    auto file = llvm::MemoryBuffer::getFile(file_name);
+    if (!file) {
+        llvm::errs() << "Fail to open file: " << file_name << "\n";
+        return -1;
+    }
+    
+    std::unique_ptr<llvm::MemoryBuffer> file_buf = std::move(*file);
+    Lexer lexer(file_buf->getBuffer());
 
-    llvm::FunctionType* main_func_type = llvm::FunctionType::get(ir_builder.getInt32Ty(), false);
-    llvm::Function* main_func = llvm::Function::Create(
-                                main_func_type, 
-                                llvm::GlobalValue::LinkageTypes::ExternalLinkage, 
-                                "main", 
-                                module);
-
-    llvm::BasicBlock* entry_block = llvm::BasicBlock::Create(context, "entry", main_func);
-    ir_builder.SetInsertPoint(entry_block);
-
-    // Create a "Get Element Pointer" instruction.
-    llvm::Value* gep = ir_builder.CreateGEP(
-                                    global_var->getType(), 
-                                    global_var, 
-                                    { ir_builder.getInt64(0), ir_builder.getInt64(0) });
-
-    ir_builder.CreateCall(puts_func, { gep });
-    ir_builder.CreateRet(ir_builder.getInt32(0));
-
-    llvm::verifyFunction(*main_func, &llvm::errs());
-    llvm::verifyModule(module, &llvm::errs());
-
-    module.print(llvm::outs(), nullptr);
+    Token token;
+    while (token.GetType() != TokenType::kEOF) {
+        lexer.GetNextToken(token);
+        token.Dump();
+    }
 
     return 0;
 }
