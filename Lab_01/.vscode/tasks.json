@@ -17,7 +17,7 @@
             "args": [
                 "../",
                 "-GNinja",
-                "-DLLVM_DIR=${workspaceFolder}/../build-llvm/llvm_install_dir/lib/cmake/llvm",
+                "-DLLVM_DIR=${workspaceFolder}/../../build-llvm/llvm_install_dir/lib/cmake/llvm",
                 "-DCMAKE_BUILD_TYPE=Debug",
                 "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
             ],

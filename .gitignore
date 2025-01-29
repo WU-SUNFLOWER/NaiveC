@@ -30,3 +30,56 @@
 *.exe
 *.out
 *.app
+
+# CMake 缓存和配置
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+install_manifest.txt
+*.cmake
+CTestTestfile.cmake
+Testing/
+
+# 构建目录（递归忽略所有层级的构建目录）
+**/build/
+**/cmake-build-*/
+**/_build/
+**/out/
+
+# --------------------------
+# 编译生成的可执行文件和库
+# --------------------------
+bin/
+lib/
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# --------------------------
+# IDE 和编辑器临时文件
+# --------------------------
+
+# Visual Studio 生成的文件（若使用 CMake 生成解决方案）
+*.sln
+*.vcxproj*
+*.vcxproj.filters
+*.vcxproj.user
+.vs/
+
+# Xcode 生成的项目
+*.xcodeproj/
+*.xcworkspace/
+
+# CLion 或其他 IDE 的临时目录
+.idea/
+.cache/
+
+# 编辑器临时文件（如 Vim）
+*.swp
+*.swo
+
+.ll
