@@ -41,6 +41,10 @@ class Token {
         return type_;
     }
 
+    int GetValue() const {
+        return value_;
+    }
+
     void Dump() {
         llvm::outs() << "{ " << content_ 
                      << " | " 

@@ -10,6 +10,8 @@
 #include "llvm/Support/ErrorOr.h"
 
 #include "lexer.h"
+#include "parser.h"
+#include "print-visitor.h"
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -27,11 +29,17 @@ int main(int argc, char* argv[]) {
     std::unique_ptr<llvm::MemoryBuffer> file_buf = std::move(*file);
     Lexer lexer(file_buf->getBuffer());
 
+    /*
     Token token;
     while (token.GetType() != TokenType::kEOF) {
         lexer.GetNextToken(token);
         token.Dump();
-    }
+    }    
+    */
 
+    Parser parser(lexer);
+    auto program = parser.ParserProgram();
+
+    PrintVisitor visitor(program);
     return 0;
 }

@@ -13,15 +13,21 @@
 class Parser {
  private:
     Lexer& lexer_;
+    Token token_;
 
  public:
-    explicit Parser(Lexer& lexer) : lexer_(lexer) {}
+    explicit Parser(Lexer& lexer);
 
     std::shared_ptr<Program> ParserProgram();
 
  private:
+    std::shared_ptr<Expression> ParserExpression();
     std::shared_ptr<Expression> ParserFactor();
     std::shared_ptr<Expression> ParseTerm();
+
+    bool Expect(TokenType token_type);
+    bool Consume(TokenType token_type);
+    void Advance();
 };
 
 #endif  // PARSER_H_
