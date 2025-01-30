@@ -8,6 +8,8 @@
 #include <memory>
 #include <vector>
 
+#include "llvm/IR/Value.h"
+
 class Program;
 class Expression;
 class BinaryExpression;
@@ -17,16 +19,16 @@ class Visitor {
  public:
     virtual ~Visitor() {}
 
-    virtual void VisitProgram(Program*) = 0;
-    virtual void VisitBinaryExpr(BinaryExpression*) = 0;
-    virtual void VisitFactorExpr(FactorExpression*) = 0;
+    virtual llvm::Value* VisitProgram(Program*) = 0;
+    virtual llvm::Value* VisitBinaryExpr(BinaryExpression*) = 0;
+    virtual llvm::Value* VisitFactorExpr(FactorExpression*) = 0;
 };
 
 class Expression {
  public:
     virtual ~Expression() {}
 
-    virtual void Accept(Visitor* vis) = 0;
+    virtual llvm::Value* Accept(Visitor* vis) = 0;
 };
 
 enum class OpCode {
@@ -42,17 +44,17 @@ class BinaryExpression : public Expression {
     std::shared_ptr<Expression> left_;
     std::shared_ptr<Expression> right_;
 
-    void Accept(Visitor* vis) override {
-        vis->VisitBinaryExpr(this);
+    llvm::Value* Accept(Visitor* vis) override {
+        return vis->VisitBinaryExpr(this);
     }
 };
 
-class FactorExpression : public Expression{
+class FactorExpression : public Expression {
  public:
     int number_;
 
-    void Accept(Visitor* vis) override {
-        vis->VisitFactorExpr(this);
+    llvm::Value* Accept(Visitor* vis) override {
+        return vis->VisitFactorExpr(this);
     }
 };
 

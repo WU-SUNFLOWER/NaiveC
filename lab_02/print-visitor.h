@@ -11,9 +11,9 @@ class PrintVisitor : public Visitor {
  public:
     explicit PrintVisitor(std::shared_ptr<Program> prog);
 
-    void VisitProgram(Program* prog) override;
-    void VisitBinaryExpr(BinaryExpression* binary_expr) override;
-    void VisitFactorExpr(FactorExpression* factor_expr) override;
+    llvm::Value* VisitProgram(Program* prog) override;
+    llvm::Value* VisitBinaryExpr(BinaryExpression* binary_expr) override;
+    llvm::Value* VisitFactorExpr(FactorExpression* factor_expr) override;
 };
 
 #endif  // PRINT_VISITOR_H_

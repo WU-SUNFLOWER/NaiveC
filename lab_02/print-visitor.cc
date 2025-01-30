@@ -10,14 +10,15 @@ PrintVisitor::PrintVisitor(std::shared_ptr<Program> prog) {
     VisitProgram(prog.get());
 }
 
-void PrintVisitor::VisitProgram(Program *prog) {
+llvm::Value* PrintVisitor::VisitProgram(Program *prog) {
     for (auto& expr : prog->expr_vec_) {
         expr->Accept(this);
         llvm::outs() << "\n";
     }
+    return nullptr;
 }
 
-void PrintVisitor::VisitBinaryExpr(BinaryExpression *binary_expr) {
+llvm::Value* PrintVisitor::VisitBinaryExpr(BinaryExpression *binary_expr) {
     binary_expr->left_->Accept(this);
     binary_expr->right_->Accept(this);
 
@@ -39,8 +40,11 @@ void PrintVisitor::VisitBinaryExpr(BinaryExpression *binary_expr) {
                          << static_cast<int>(binary_expr->op_) 
                          << "\n";
     }
+
+    return nullptr;
 }
 
-void PrintVisitor::VisitFactorExpr(FactorExpression *factor_expr) {
+llvm::Value* PrintVisitor::VisitFactorExpr(FactorExpression *factor_expr) {
     llvm::outs() << " " << factor_expr->number_ << " ";
+    return nullptr;
 }

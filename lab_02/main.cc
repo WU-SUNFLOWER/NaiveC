@@ -12,6 +12,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "print-visitor.h"
+#include "codegen.h"
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -29,7 +30,8 @@ int main(int argc, char* argv[]) {
     std::unique_ptr<llvm::MemoryBuffer> file_buf = std::move(*file);
     Lexer lexer(file_buf->getBuffer());
 
-    /*
+    /* Lab 02 Step 01
+
     Token token;
     while (token.GetType() != TokenType::kEOF) {
         lexer.GetNextToken(token);
@@ -40,6 +42,12 @@ int main(int argc, char* argv[]) {
     Parser parser(lexer);
     auto program = parser.ParserProgram();
 
+    /* Lab 02 Step 02
+
     PrintVisitor visitor(program);
+    */
+    
+    CodeGen generator(program);
+
     return 0;
 }
