@@ -32,10 +32,11 @@ llvm::Value* CodeGen::VisitProgram(Program *prog) {
     llvm::BasicBlock* entry_block = llvm::BasicBlock::Create(context_, "entry", func);
     ir_builder_.SetInsertPoint(entry_block);
 
+    llvm::Value* result;
     for (auto& expr : prog->expr_vec_) {
-        llvm::Value* result = expr->Accept(this);
-        ir_builder_.CreateCall(print_func, { ir_builder_.CreateGlobalStringPtr("expr val: %d\n"), result});
+        result = expr->Accept(this);
     }
+    ir_builder_.CreateCall(print_func, { ir_builder_.CreateGlobalStringPtr("expr val: %d\n"), result });
 
     llvm::Value* ret = ir_builder_.CreateRet(ir_builder_.getInt32(0));
     llvm::verifyFunction(*func);
@@ -67,16 +68,52 @@ llvm::Value* CodeGen::VisitBinaryExpr(BinaryExpr *binary_expr) {
     return nullptr;
 }
 
-llvm::Value *CodeGen::VisitVariableAccessExpr(VariableAccessExpr *) {
-    return nullptr;
+llvm::Value* CodeGen::VisitVariableAccessExpr(VariableAccessExpr* access_node) {
+    const llvm::StringRef& variable_name = access_node->GetName();
+    llvm::Value* variable_addr = variable_addr_map_[variable_name];
+    
+    llvm::Type* ir_type = nullptr;
+    if (access_node->GetCType() == CType::GetIntType()) {
+        ir_type = ir_builder_.getInt32Ty();
+    }
+    else {
+        llvm::errs() << "Try to access variable with unknown type: " << variable_name;
+        return nullptr;
+    }
+
+    auto ret = ir_builder_.CreateLoad(ir_type, variable_addr, variable_name);
+
+    return ret;
 }
 
-llvm::Value *CodeGen::VisitVariableDecl(VariableDecl *) {
-    return nullptr;
+llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
+    llvm::Type* ir_type = nullptr;
+    const llvm::StringRef& variable_name = decl_node->GetName();
+    if (decl_node->GetCType() == CType::GetIntType()) {
+        ir_type = ir_builder_.getInt32Ty();
+    }
+    else {
+        llvm::errs() << "Try to delcare variable with unknown type: " << variable_name;
+        return nullptr;
+    }
+
+    llvm::Value* value = ir_builder_.CreateAlloca(ir_type, nullptr, variable_name);
+    variable_addr_map_.insert({ variable_name, value });
+
+    return value;
 }
 
-llvm::Value *CodeGen::VisitAssignExpr(AssignExpr *) {
-    return nullptr;
+llvm::Value* CodeGen::VisitAssignExpr(AssignExpr* assign_node) {
+    auto access_node = static_cast<VariableAccessExpr*>(assign_node->GetLeftChild().get());
+    assert(llvm::isa<VariableAccessExpr>(access_node));
+
+    llvm::Value* variable_addr = variable_addr_map_[access_node->GetName()];
+
+    // Compute the right node at first.
+    llvm::Value* right_value = assign_node->GetRightChild()->Accept(this);
+
+    // Generate store ir instruction.
+    return ir_builder_.CreateStore(right_value, variable_addr);
 }
 
 llvm::Value* CodeGen::VisitNumberExpr(NumberExpr *factor_expr) {

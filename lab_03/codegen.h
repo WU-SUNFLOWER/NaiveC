@@ -19,6 +19,7 @@ class CodeGen : public Visitor {
     llvm::LLVMContext context_;
     llvm::IRBuilder<> ir_builder_ { context_ };
     std::shared_ptr<llvm::Module> module_ { nullptr };
+    llvm::StringMap<llvm::Value*> variable_addr_map_;
 
  public:
     explicit CodeGen(std::shared_ptr<Program> prog);

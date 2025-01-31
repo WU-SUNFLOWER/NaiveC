@@ -138,6 +138,10 @@ class VariableAccessExpr : public AstNode {
 
     VariableAccessExpr() : AstNode(AstNodeKind::kVariableAccessExpr) {}
 
+    const llvm::StringRef& GetName() const {
+        return name_;
+    }
+
     void SetName(const llvm::StringRef& name) {
         name_ = name;
     }
@@ -158,6 +162,14 @@ class AssignExpr : public AstNode {
     std::shared_ptr<AstNode> right_;
 
     AssignExpr() : AstNode(AstNodeKind::kAssignExpr) {}
+
+    std::shared_ptr<AstNode> GetLeftChild() {
+        return left_;
+    }
+
+    std::shared_ptr<AstNode> GetRightChild() {
+        return right_;
+    }
 
     llvm::Value* Accept(Visitor* vis) override {
         return vis->VisitAssignExpr(this);

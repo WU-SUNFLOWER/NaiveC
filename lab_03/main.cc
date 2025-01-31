@@ -32,12 +32,12 @@ int main(int argc, char* argv[]) {
     Lexer lexer(file_buf->getBuffer());
 
     /* Lab 03 Step 01 */  
-    /*
+    /* 
     Token token;
     while (token.GetType() != TokenType::kEOF) {
         lexer.GetNextToken(token);
         token.Dump();
-    }    
+    }   
     */
 
     /* Lab 02 Step 02 */
@@ -47,10 +47,9 @@ int main(int argc, char* argv[]) {
 
     PrintVisitor visitor(program);
     
-    /* Lab 03 Step 03
+    /* Lab 03 Step 03*/
 
-    CodeGen generator(program);
-    */
+    //CodeGen generator(program);
 
     return 0;
 }
