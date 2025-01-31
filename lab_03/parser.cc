@@ -22,12 +22,12 @@ std::shared_ptr<Program> Parser::ParserProgram() {
         }
 
         if (token_.GetType() == TokenType::kInt) {
-            auto decl_exprs = std::move(ParseDecl());
+            auto decl_exprs = std::move(ParseDeclStmt());
             for (auto& decl_expr : decl_exprs) {
                 exprs.push_back(decl_expr);
             }
         } else {
-            auto expression = ParserExpression();
+            auto expression = ParseExprStmt();
             exprs.push_back(expression);
         }
     }
@@ -38,7 +38,7 @@ std::shared_ptr<Program> Parser::ParserProgram() {
     return program;
 }
 
-std::vector<std::shared_ptr<AstNode>> Parser::ParseDecl() {
+std::vector<std::shared_ptr<AstNode>> Parser::ParseDeclStmt() {
     // Step 1. int x, y = 1, z = 2;
     Consume(TokenType::kInt);
 
@@ -56,7 +56,7 @@ std::vector<std::shared_ptr<AstNode>> Parser::ParseDecl() {
             Advance();
 
             auto access_expr = sema_.SemaVariableAccessNode(variable_name);
-            auto value_expr = ParserExpression();
+            auto value_expr = ParseExpr();
 
             auto assign_expr = sema_.SemaAssignExprNode(access_expr, value_expr);
             ast_vec.push_back(assign_expr);
@@ -73,7 +73,42 @@ std::vector<std::shared_ptr<AstNode>> Parser::ParseDecl() {
     return ast_vec;
 }
 
-std::shared_ptr<AstNode> Parser::ParserExpression() {
+std::shared_ptr<AstNode> Parser::ParseExprStmt() {
+    auto expr = ParseExpr();
+    Consume(TokenType::kSemi);
+    return expr;
+}
+
+std::shared_ptr<AstNode> Parser::ParseAssignExpr() {
+    auto access_node = sema_.SemaVariableAccessNode(token_.GetContent());
+    Consume(TokenType::kIdentifier);
+    Consume(TokenType::kEqual);
+
+    auto right_node = ParseExpr();
+    return sema_.SemaAssignExprNode(access_node, right_node);
+}
+
+std::shared_ptr<AstNode> Parser::ParseExpr() {
+    bool is_assign_expr = false;
+
+    lexer_.SaveState();
+    {
+        if (token_.GetType() == TokenType::kIdentifier) {
+            Token tmp;
+            lexer_.GetNextToken(tmp);
+            if (tmp.GetType() == TokenType::kEqual) {
+                is_assign_expr = true;
+            }
+        }
+    }
+    lexer_.RestoreState();
+
+    // Process "=" assignment expression.
+    if (is_assign_expr) {
+        return ParseAssignExpr();
+    }
+
+    // Process "+"/"-" expression.
     auto left_expr = ParseTerm();
     while (token_.GetType() == TokenType::kPlus 
            || token_.GetType() == TokenType::kMinus) {
@@ -91,11 +126,12 @@ std::shared_ptr<AstNode> Parser::ParserExpression() {
 
         left_expr = std::move(binary_expr);
     }
+
     return left_expr;
 }
 
 std::shared_ptr<AstNode> Parser::ParseTerm() {
-    auto left_expr = ParserFactor();
+    auto left_expr = ParseFactor();
     while (token_.GetType() == TokenType::kStar 
            || token_.GetType() == TokenType::kSlash) {
         OpCode op;
@@ -107,7 +143,7 @@ std::shared_ptr<AstNode> Parser::ParseTerm() {
 
         Advance();
 
-        auto right_expr = ParserFactor();
+        auto right_expr = ParseFactor();
         auto binary_expr = sema_.SemaBinaryExprNode(left_expr, right_expr, op);
 
         left_expr = std::move(binary_expr);
@@ -115,10 +151,10 @@ std::shared_ptr<AstNode> Parser::ParseTerm() {
     return left_expr;
 }
 
-std::shared_ptr<AstNode> Parser::ParserFactor() {
+std::shared_ptr<AstNode> Parser::ParseFactor() {
     if (token_.GetType() == TokenType::kLParent) {
         Advance();
-        auto sub_expr = ParserExpression();
+        auto sub_expr = ParseExpr();
         assert(Expect(TokenType::kRParent));
         Advance();
         return sub_expr;

@@ -78,13 +78,22 @@ class Lexer {
     const char* buf_;
     const char* line_head_;
     const char* buf_end_;
-
     int row_;
+
+    struct State {
+        const char* buf;
+        const char* line_head;
+        const char* buf_end;
+        int row;
+    } state_;
+
 
  public:
     explicit Lexer(llvm::StringRef source_code);
 
     void GetNextToken(Token&);
+    void SaveState();
+    void RestoreState();
 };
 
 #endif  // LEXER_H_

@@ -1,6 +1,8 @@
-prog : (decl-stmt | expr-stmt)*
+prog : stmt*     
+stmt : decl-stmt | expr-stmt | null-stmt      
+null-stmt : ";"      
 decl-stmt : "int" identifier ("," identifier (= expr)?)* ";"
-expr-stmt : expr? ";"
+expr-stmt : expr ";"
 expr : assign-expr | add-expr
 assign-expr: identifier "=" expr
 add-expr : mult-expr (("+" | "-") mult-expr)* 

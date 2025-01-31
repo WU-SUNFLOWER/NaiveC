@@ -2,20 +2,28 @@
 
 The goal of this lab is to introduce variables into our minimalist compiler, which can compute some simple expressions like this:
 ```
-int z, x = 3, y = 4;
-z = 1024;
-x + y * 4 + 5;
+int a, b = 4, c = 0;
+b = 1000;
+a = c = b + 3;
+a + b * 4 - (5 + c);
 ``` 
 
 ## Step by step
 
-As we known, this is a kind of the most simple programming language, which follows the following grammar rules:
+The grammar rules in this lab:
 ```
-prog : (expr? ";")*
-expr : term (("+" | "-") term)* ;
-term : factor (("*" | "/") factor)* ;
-factor : number | "(" expr ")" ;
-number: ([0-9])+ ;
+prog : stmt*     
+stmt : decl-stmt | expr-stmt | null-stmt      
+null-stmt : ";"      
+decl-stmt : "int" identifier ("," identifier (= expr)?)* ";"
+expr-stmt : expr ";"
+expr : assign-expr | add-expr
+assign-expr: identifier "=" expr
+add-expr : mult-expr (("+" | "-") mult-expr)* 
+mult-expr : primary-expr (("*" | "/") primary-expr)* 
+primary-expr : identifier | number | "(" expr ")" 
+number: ([0-9])+ 
+identifier : (a-zA-Z_)(a-zA-Z0-9_)*
 ```
 
 To achieve this goal, I broke it into these small tasks and finished them step by step:
@@ -50,22 +58,13 @@ Use LLVM to interpret IR:
 
 So, if the content of your `test/expr.txt` is:
 ```
-1-3;
-123;
-2+(4/2)*3-100;   
-4-6+19/89;    
-787-(8/91);
-5+3/2;
-(5-31)*100
+int a, b = 4, c = 0;
+b = 1000;
+a = c = b + 3;
+a + b * 4 - (5 + c);
 ```
 
 Then you will get the result:
 ```
-expr val: -2
-expr val: 123
-expr val: -92
-expr val: -2
-expr val: 787
-expr val: 6
-expr val: -2600
+expr val: 3995
 ```

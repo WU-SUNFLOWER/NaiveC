@@ -70,18 +70,12 @@ llvm::Value* CodeGen::VisitBinaryExpr(BinaryExpr *binary_expr) {
 
 llvm::Value* CodeGen::VisitVariableAccessExpr(VariableAccessExpr* access_node) {
     const llvm::StringRef& variable_name = access_node->GetName();
-    llvm::Value* variable_addr = variable_addr_map_[variable_name];
-    
-    llvm::Type* ir_type = nullptr;
-    if (access_node->GetCType() == CType::GetIntType()) {
-        ir_type = ir_builder_.getInt32Ty();
-    }
-    else {
-        llvm::errs() << "Try to access variable with unknown type: " << variable_name;
-        return nullptr;
-    }
+    auto& variable_info = variable_map_[variable_name];
 
-    auto ret = ir_builder_.CreateLoad(ir_type, variable_addr, variable_name);
+    llvm::Value* variable_addr = variable_info.first;
+    llvm::Type* variable_ir_type = variable_info.second;
+
+    auto ret = ir_builder_.CreateLoad(variable_ir_type, variable_addr, variable_name);
 
     return ret;
 }
@@ -98,22 +92,31 @@ llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
     }
 
     llvm::Value* value = ir_builder_.CreateAlloca(ir_type, nullptr, variable_name);
-    variable_addr_map_.insert({ variable_name, value });
+    variable_map_.insert({ variable_name, { value, ir_type } });
 
     return value;
 }
 
 llvm::Value* CodeGen::VisitAssignExpr(AssignExpr* assign_node) {
-    auto access_node = static_cast<VariableAccessExpr*>(assign_node->GetLeftChild().get());
-    assert(llvm::isa<VariableAccessExpr>(access_node));
+    auto access_node = assign_node->GetLeftChild();
 
-    llvm::Value* variable_addr = variable_addr_map_[access_node->GetName()];
+    assert(llvm::isa<VariableAccessExpr>(access_node.get()));
+
+    auto variable_name = static_cast<VariableAccessExpr*>(access_node.get())->GetName();
+    auto& variable_info = variable_map_[variable_name];
+    llvm::Value* variable_addr = variable_info.first;
+    llvm::Type* variable_ir_type = variable_info.second;
 
     // Compute the right node at first.
-    llvm::Value* right_value = assign_node->GetRightChild()->Accept(this);
+    auto right_node = assign_node->GetRightChild();
+    llvm::Value* right_value = right_node->Accept(this);
 
     // Generate store ir instruction.
-    return ir_builder_.CreateStore(right_value, variable_addr);
+    ir_builder_.CreateStore(right_value, variable_addr);
+
+    // Return our target variable as a lvalue.
+    // auto ret = ir_builder_.CreateLoad(variable_ir_type, variable_addr, variable_name);
+    return ir_builder_.CreateLoad(variable_ir_type, variable_addr, variable_name);
 }
 
 llvm::Value* CodeGen::VisitNumberExpr(NumberExpr *factor_expr) {

@@ -18,6 +18,20 @@ bool IsLetter(char ch) {
     return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_';
 }
 
+void Lexer::SaveState() {
+    state_.buf = buf_;
+    state_.buf_end = buf_end_;
+    state_.line_head = line_head_;
+    state_.row = row_;
+}
+
+void Lexer::RestoreState() {
+    buf_ = state_.buf;
+    buf_end_ = state_.buf_end;
+    line_head_ = state_.line_head;
+    row_ = state_.row;
+}
+
 Lexer::Lexer(llvm::StringRef source_code) {
     line_head_ = source_code.begin();
     buf_ = source_code.begin();

@@ -45,11 +45,10 @@ int main(int argc, char* argv[]) {
     Parser parser(lexer, sema);
     auto program = parser.ParserProgram();
 
-    PrintVisitor visitor(program);
+    //PrintVisitor visitor(program);
     
     /* Lab 03 Step 03*/
-
-    //CodeGen generator(program);
+    CodeGen generator(program);
 
     return 0;
 }

@@ -24,10 +24,11 @@ class Parser {
     std::shared_ptr<Program> ParserProgram();
 
  private:
-    std::vector<std::shared_ptr<AstNode>> ParseDecl();
-
-    std::shared_ptr<AstNode> ParserExpression();
-    std::shared_ptr<AstNode> ParserFactor();
+    std::vector<std::shared_ptr<AstNode>> ParseDeclStmt();
+    std::shared_ptr<AstNode> ParseExprStmt();
+    std::shared_ptr<AstNode> ParseAssignExpr();
+    std::shared_ptr<AstNode> ParseExpr();
+    std::shared_ptr<AstNode> ParseFactor();
     std::shared_ptr<AstNode> ParseTerm();
 
     bool Expect(TokenType token_type);
