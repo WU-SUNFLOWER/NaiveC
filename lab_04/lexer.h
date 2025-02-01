@@ -50,6 +50,8 @@ class Token {
 
     Token() = default;
 
+    Token(TokenType type, int row, int col) : type_(type), row_(row), col_(col) {}
+
     Token(const Token& other) = default;
 
     TokenType GetType() const {
@@ -62,6 +64,14 @@ class Token {
 
     int GetValue() const {
         return value_;
+    }
+
+    int GetRow() const {
+        return row_;
+    }
+
+    int GetCol() const {
+        return col_;
     }
 
     llvm::StringRef GetContent() const {

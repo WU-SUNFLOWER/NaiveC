@@ -27,3 +27,5 @@ z = 3;
 ### Task 2
 
 The second goal of this lab is to introduce **Unit Testing** into our project.
+
+Reference: https://google.github.io/googletest/quickstart-cmake.html
