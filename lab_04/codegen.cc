@@ -69,7 +69,7 @@ llvm::Value* CodeGen::VisitBinaryExpr(BinaryExpr *binary_expr) {
 }
 
 llvm::Value* CodeGen::VisitVariableAccessExpr(VariableAccessExpr* access_node) {
-    const llvm::StringRef& variable_name = access_node->GetName();
+    const llvm::StringRef& variable_name = access_node->GetVariableName();
     auto& variable_info = variable_map_[variable_name];
 
     llvm::Value* variable_addr = variable_info.first;
@@ -82,7 +82,7 @@ llvm::Value* CodeGen::VisitVariableAccessExpr(VariableAccessExpr* access_node) {
 
 llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
     llvm::Type* ir_type = nullptr;
-    const llvm::StringRef& variable_name = decl_node->GetName();
+    const llvm::StringRef& variable_name = decl_node->GetVariableName();
     if (decl_node->GetCType() == CType::GetIntType()) {
         ir_type = ir_builder_.getInt32Ty();
     }
@@ -102,7 +102,7 @@ llvm::Value* CodeGen::VisitAssignExpr(AssignExpr* assign_node) {
 
     assert(llvm::isa<VariableAccessExpr>(access_node.get()));
 
-    auto variable_name = static_cast<VariableAccessExpr*>(access_node.get())->GetName();
+    auto variable_name = static_cast<VariableAccessExpr*>(access_node.get())->GetVariableName();
     auto& variable_info = variable_map_[variable_name];
     llvm::Value* variable_addr = variable_info.first;
     llvm::Type* variable_ir_type = variable_info.second;
@@ -120,5 +120,5 @@ llvm::Value* CodeGen::VisitAssignExpr(AssignExpr* assign_node) {
 }
 
 llvm::Value* CodeGen::VisitNumberExpr(NumberExpr *factor_expr) {
-    return ir_builder_.getInt32(factor_expr->number_);
+    return ir_builder_.getInt32(factor_expr->GetNumber());
 }

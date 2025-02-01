@@ -46,19 +46,22 @@ std::vector<std::shared_ptr<AstNode>> Parser::ParseDeclStmt() {
     std::vector<std::shared_ptr<AstNode>> ast_vec;
     // Step 2. x, y = 1, z = 2;
     while (token_.GetType() != TokenType::kSemi) {
+        Token variable_token = token_;
         auto variable_name = token_.GetContent();
-        auto variable_decl_node = sema_.SemaVariableDeclNode(variable_name, variable_ctype);
+        auto variable_decl_node = sema_.SemaVariableDeclNode(variable_token, variable_ctype);
         ast_vec.push_back(variable_decl_node);
 
         Consume(TokenType::kIdentifier);
 
         if (token_.GetType() == TokenType::kEqual) {
+            Token equal_op_token = token_;
+
             Advance();
 
-            auto access_expr = sema_.SemaVariableAccessNode(variable_name);
+            auto access_expr = sema_.SemaVariableAccessNode(variable_token);
             auto value_expr = ParseExpr();
 
-            auto assign_expr = sema_.SemaAssignExprNode(access_expr, value_expr);
+            auto assign_expr = sema_.SemaAssignExprNode(equal_op_token, access_expr, value_expr);
             ast_vec.push_back(assign_expr);
         }
 
@@ -80,12 +83,14 @@ std::shared_ptr<AstNode> Parser::ParseExprStmt() {
 }
 
 std::shared_ptr<AstNode> Parser::ParseAssignExpr() {
-    auto access_node = sema_.SemaVariableAccessNode(token_.GetContent());
+    auto access_node = sema_.SemaVariableAccessNode(token_);
     Consume(TokenType::kIdentifier);
+
+    Token equal_op_token = token_;
     Consume(TokenType::kEqual);
 
     auto right_node = ParseExpr();
-    return sema_.SemaAssignExprNode(access_node, right_node);
+    return sema_.SemaAssignExprNode(equal_op_token, access_node, right_node);
 }
 
 std::shared_ptr<AstNode> Parser::ParseExpr() {
@@ -161,23 +166,30 @@ std::shared_ptr<AstNode> Parser::ParseFactor() {
     }
 
     if (token_.GetType() == TokenType::kIdentifier) {
-        auto access_expr = sema_.SemaVariableAccessNode(token_.GetContent());
+        auto access_expr = sema_.SemaVariableAccessNode(token_);
         Advance();
         return access_expr;
     }
-
-    auto number_expr = sema_.SemaNumberExprNode(token_.GetValue(), token_.GetCType());
+    Expect(TokenType::kNumber);
+    auto number_expr = sema_.SemaNumberExprNode(token_, token_.GetCType());
     Advance();
 
     return number_expr;
 }
 
 bool Parser::Expect(TokenType token_type) {
+    if (token_.GetType() == token_type) {
+        return true;
+    }
+    GetDiagEngine().Report(
+            llvm::SMLoc::getFromPointer(token_.GetRawContentPtr()),
+            Diag::kErrExpected,
+            Token::GetSpellingText(token_type),
+            token_.GetContent());
     return token_.GetType() == token_type;
 }
 
 bool Parser::Consume(TokenType token_type) {
-    assert(Expect(token_type));
     if (Expect(token_type)) {
         Advance();
         return true;

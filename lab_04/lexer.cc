@@ -4,6 +4,7 @@
 
 #include "lexer.h"
 
+#include <cstring>
 #include <iostream>
 
 bool IsWhiteSpace(char ch) {
@@ -51,38 +52,42 @@ void Lexer::GetNextToken(Token& token) {
         }
         ++buf_;
     }
-    token.row_ = row_;
-    token.col_ = buf_ - line_head_ + 1;
 
     // 2. Have we reached the end of file?
     if (buf_ >= buf_end_) {
         token.type_ = TokenType::kEOF;
-        token.content_ = llvm::StringRef("EOF");
         return;
     }
+
+    // 3. Now we meet the next legal token
+    //    Let's record its position information.
+    token.row_ = row_;
+    token.col_ = buf_ - line_head_ + 1;
 
     const char* start = buf_;
     if (IsDigit(*buf_)) {
         int number = 0;
-        int len = 0;
         while (IsDigit(*buf_)) {
             number = number * 10 + (*buf_ - '0');
             ++buf_;
-            ++len;
         }
+
         token.type_ = TokenType::kNumber;
         token.value_ = number;
-        token.content_ = llvm::StringRef(start, len);
         token.ctype_ = CType::GetIntType();
+        token.content_ptr_ = start;
+        token.content_length_ = buf_ - start;
     }
     else if (IsLetter(*buf_)) {
         while (IsLetter(*buf_) || IsDigit(*buf_)) {
             ++buf_;
         }
-        token.type_ = TokenType::kIdentifier;
-        token.content_ = llvm::StringRef(start, buf_ - start);
 
-        if (token.content_ == "int") {
+        token.type_ = TokenType::kIdentifier;
+        token.content_ptr_ = start;
+        token.content_length_ = buf_ - start;
+
+        if (strncmp(token.content_ptr_, "int", token.content_length_) == 0) {
             token.type_ = TokenType::kInt;
         }
     }
@@ -116,10 +121,63 @@ void Lexer::GetNextToken(Token& token) {
                 token.type_ = TokenType::kEqual;
                 break;
             default:
-                token.type_ = TokenType::kUnknown;
                 diag_engine_.Report(llvm::SMLoc::getFromPointer(buf_), Diag::kErrUnknownChar, *buf_);
         }
         ++buf_;
-        token.content_ = llvm::StringRef(start, 1);
+        token.content_ptr_ = start;
+        token.content_length_ = 1;
     }
+}
+
+/*
+enum class TokenType {
+    kNumber,
+    kPlus,          // '+'
+    kMinus,         // '-'
+    kStar,          // '*'
+    kSlash,         // '/'
+    kLParent,       // '('
+    kRParent,       // ')'
+    kSemi,          // ';'
+
+    kIdentifier,    // (a-zA-Z_)(a-zA-Z0-9_)*
+    kEqual,         // '='
+    kComma,         // ','
+    kInt,           // 'int'
+
+    kEOF,           // The end of file
+};
+*/
+llvm::StringRef Token::GetSpellingText(TokenType token_type) {
+    switch (token_type) {
+        case TokenType::kNumber:
+            return "Number";
+        case TokenType::kPlus:
+            return "+";
+        case TokenType::kMinus:
+            return "-";
+        case TokenType::kStar:
+            return "*";
+        case TokenType::kSlash:
+            return "/";
+        case TokenType::kLParent:
+            return "(";
+        case TokenType::kRParent:
+            return ")";
+        case TokenType::kSemi:
+            return ";";
+        case TokenType::kIdentifier:
+            return "Identifier";
+        case TokenType::kEqual:
+            return "=";
+        case TokenType::kComma:
+            return ",";
+        case TokenType::kInt:
+            return "int";
+        case TokenType::kEOF:
+            return "EOF";
+        default:
+            break;
+    }
+    llvm::llvm_unreachable_internal();
 }

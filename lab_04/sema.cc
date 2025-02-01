@@ -9,12 +9,16 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Casting.h"
 
-std::shared_ptr<AstNode> Sema::SemaVariableDeclNode(const llvm::StringRef& name, CType *ctype) {
+std::shared_ptr<AstNode> Sema::SemaVariableDeclNode(Token& token, CType *ctype) {
     // 1. Has the variable name already been defined?
+    auto name = token.GetContent();
     auto symbol = scope_.FindVarSymbolInCurrentEnv(name);
+
     if (symbol) {
-        llvm::errs() << "Try to redefine variable: " << name << "\n";
-        return nullptr;
+        diag_engine_.Report(
+                llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
+                Diag::kErrRedefined,
+                name);
     }
 
     // 2. Add the symbol name to symbol table.
@@ -22,22 +26,22 @@ std::shared_ptr<AstNode> Sema::SemaVariableDeclNode(const llvm::StringRef& name,
 
     // 3. Allocate the variable declare node object.
     auto node = std::make_shared<VariableDecl>();
-    node->SetName(name);
+    node->SetBoundToken(token);
     node->SetCType(ctype);
     return node;
 }
 
 std::shared_ptr<AstNode> Sema::SemaAssignExprNode(
+        Token& token,
         std::shared_ptr<AstNode> left, 
         std::shared_ptr<AstNode> right) {
-    if (!left || !right) {
-        llvm::errs() << "The left or right child of assign expression is null!\n";
-        return nullptr;
-    }
+    assert(left && right);
 
     if (!llvm::isa<VariableAccessExpr>(left.get())) {
-        llvm::errs() << "The left child of assign expression isn't access expression\n";
-        return nullptr;
+        const Token& left_token = left->GetBoundToken();
+        diag_engine_.Report(
+                llvm::SMLoc::getFromPointer(left_token.GetRawContentPtr()),
+                Diag::kErrLValue);
     }
 
     auto assign_expr = std::make_shared<AssignExpr>();
@@ -47,16 +51,20 @@ std::shared_ptr<AstNode> Sema::SemaAssignExprNode(
     return assign_expr;
 }
 
-std::shared_ptr<AstNode> Sema::SemaVariableAccessNode(const llvm::StringRef& name) {
+std::shared_ptr<AstNode> Sema::SemaVariableAccessNode(Token& token) {
+    auto name = token.GetContent();
     auto symbol = scope_.FindVarSymbol(name);
+
     if (!symbol) {
-        llvm::errs() << "Try to access undefined symbol: " << name << "\n";
-        return nullptr;
+        diag_engine_.Report(
+                llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
+                Diag::kErrUndefined,
+                name);
     }
 
     auto variable_access_node = std::make_shared<VariableAccessExpr>();
     variable_access_node->SetCType(symbol->GetCType());
-    variable_access_node->SetName(name);
+    variable_access_node->SetBoundToken(token);
     return variable_access_node;
 }
 
@@ -64,10 +72,7 @@ std::shared_ptr<AstNode> Sema::SemaBinaryExprNode(
         std::shared_ptr<AstNode> left, 
         std::shared_ptr<AstNode> right, 
         OpCode op) {
-    if (!left || !right) {
-        llvm::errs() << "The left or right child of binary expression is null!\n";
-        return nullptr;
-    }
+    assert(left && right);
 
     auto expr = std::make_shared<BinaryExpr>();
     expr->left_ = left;
@@ -76,9 +81,9 @@ std::shared_ptr<AstNode> Sema::SemaBinaryExprNode(
     return expr;
 }
 
-std::shared_ptr<AstNode> Sema::SemaNumberExprNode(int number, CType* ctype) {
+std::shared_ptr<AstNode> Sema::SemaNumberExprNode(Token& token, CType* ctype) {
     auto expr = std::make_shared<NumberExpr>();
-    expr->number_ = number;
     expr->SetCType(ctype);
+    expr->SetBoundToken(token);
     return expr;
 }

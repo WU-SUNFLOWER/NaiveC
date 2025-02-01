@@ -27,7 +27,6 @@ enum class TokenType {
     kInt,           // 'int'
 
     kEOF,           // The end of file
-    kUnknown,       // Unknown token
 };
 
 class Token;
@@ -35,17 +34,23 @@ class Lexer;
 
 class Token {
  private:
-    int row_, col_;
-    TokenType type_;
-    int value_;
-    llvm::StringRef content_;
-    CType* ctype_;
+    int row_ { -1 };
+    int col_ { -1 };
+    TokenType type_ { TokenType::kEOF };
+    
+    int value_ { -1 };  // For number token.
+
+    const char* content_ptr_ { nullptr };  // For debug && diag.
+    size_t content_length_ { 0 };
+
+    CType* ctype_ { nullptr };  // For built-in type.
 
  public:
     friend class Lexer;
 
-    Token() 
-        : row_(-1), col_(-1), type_(TokenType::kUnknown), value_(-1), ctype_(nullptr) {}
+    Token() = default;
+
+    Token(const Token& other) = default;
 
     TokenType GetType() const {
         return type_;
@@ -59,12 +64,16 @@ class Token {
         return value_;
     }
 
-    const llvm::StringRef& GetContent() const {
-        return content_;
+    llvm::StringRef GetContent() const {
+        return llvm::StringRef(content_ptr_, content_length_);
     }
 
+    const char* GetRawContentPtr() const {
+        return content_ptr_;
+    } 
+
     void Dump() {
-        llvm::outs() << "{ " << content_ 
+        llvm::outs() << "{ " << llvm::StringRef(content_ptr_, content_length_) 
                      << " | " 
                      << static_cast<int>(type_) 
                      << " | row=" 
@@ -72,6 +81,8 @@ class Token {
                      << ", col=" 
                      << col_ << "}\n";
     }
+
+    static llvm::StringRef GetSpellingText(TokenType token_type);
 };
 
 class Lexer {
@@ -97,6 +108,10 @@ class Lexer {
     void GetNextToken(Token&);
     void SaveState();
     void RestoreState();
+
+    DiagEngine& GetDiagEngine() const {
+        return diag_engine_;
+    }
 };
 
 #endif  // LEXER_H_

@@ -35,22 +35,22 @@ int main(int argc, char* argv[]) {
 
     Lexer lexer(mgr, diag_engine);
 
-    /* Lab 03 Step 01 */
+    /* Lab 03 Step 01 
     Token token;
     while (token.GetType() != TokenType::kEOF) {
         lexer.GetNextToken(token);
         token.Dump();
-    }
+    }*/
 
-    /* Lab 02 Step 02 
-    Sema sema;
+    /* Lab 02 Step 02 */
+    Sema sema(diag_engine);
     Parser parser(lexer, sema);
-    auto program = parser.ParserProgram();*/
+    auto program = parser.ParserProgram();
 
     //PrintVisitor visitor(program);
     
-    /* Lab 03 Step 03
+    /* Lab 03 Step 03*/
     CodeGen generator(program);
-*/
+
     return 0;
 }

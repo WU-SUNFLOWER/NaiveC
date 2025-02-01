@@ -11,6 +11,7 @@
 #include "llvm/IR/Value.h"
 
 #include "type.h"
+#include "lexer.h"
 
 class Program;
 class AstNode;
@@ -46,11 +47,20 @@ class AstNode {
  private:
     const AstNodeKind node_kind_;
     CType* ctype_ { nullptr };
+    Token bound_token_ {};
 
  public:
     explicit AstNode(AstNodeKind node_kind) : node_kind_(node_kind) {}
 
     virtual ~AstNode() {}
+
+    void SetBoundToken(Token& token) {
+        bound_token_ = token;
+    }
+
+    const Token& GetBoundToken() const {
+        return bound_token_;
+    }
 
     void SetCType(CType* ctype) {
         ctype_ = ctype;
@@ -69,16 +79,22 @@ class AstNode {
 
 class VariableDecl : public AstNode {
  public:
-    llvm::StringRef name_;
+    //llvm::StringRef name_;
 
     VariableDecl() : AstNode(AstNodeKind::kVariableDecl) {}
 
+    /*
     const llvm::StringRef& GetName() const {
         return name_;
     }
 
     void SetName(const llvm::StringRef& name) {
         name_ = name;
+    }    
+    */
+
+    llvm::StringRef GetVariableName() const {
+        return GetBoundToken().GetContent();
     }
 
     llvm::Value* Accept(Visitor* vis) override {
@@ -118,9 +134,13 @@ class BinaryExpr : public AstNode {
 
 class NumberExpr : public AstNode {
  public:
-    int number_;
+    //int number_;
 
     NumberExpr() : AstNode(AstNodeKind::kNumberExpr) {}
+
+    int GetNumber() const {
+        return GetBoundToken().GetValue();
+    }
 
     llvm::Value* Accept(Visitor* vis) override {
         return vis->VisitNumberExpr(this);
@@ -134,16 +154,22 @@ class NumberExpr : public AstNode {
 
 class VariableAccessExpr : public AstNode {
  public:
-    llvm::StringRef name_;
+    //llvm::StringRef name_;
 
     VariableAccessExpr() : AstNode(AstNodeKind::kVariableAccessExpr) {}
 
+    /*
     const llvm::StringRef& GetName() const {
         return name_;
     }
 
     void SetName(const llvm::StringRef& name) {
         name_ = name;
+    }    
+    */
+
+    llvm::StringRef GetVariableName() const {
+        return GetBoundToken().GetContent();
     }
 
     llvm::Value* Accept(Visitor* vis) override {

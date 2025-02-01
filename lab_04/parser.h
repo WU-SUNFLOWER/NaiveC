@@ -16,7 +16,7 @@ class Parser {
  private:
     Lexer& lexer_;
     Sema& sema_;
-    Token token_;
+    Token token_ {};
 
  public:
     explicit Parser(Lexer& lexer, Sema& sema);
@@ -34,6 +34,10 @@ class Parser {
     bool Expect(TokenType token_type);
     bool Consume(TokenType token_type);
     void Advance();
+
+    DiagEngine& GetDiagEngine() const {
+      return lexer_.GetDiagEngine();
+    }
 };
 
 #endif  // PARSER_H_

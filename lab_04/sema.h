@@ -9,26 +9,31 @@
 
 #include "scope.h"
 #include "ast.h"
+#include "diag-engine.h"
 
 class Sema {
  private:
     Scope scope_;
+    DiagEngine& diag_engine_;
 
  public:
-    std::shared_ptr<AstNode> SemaVariableDeclNode(const llvm::StringRef& name, CType* ctype);
+    explicit Sema(DiagEngine& diag_engine) : diag_engine_(diag_engine) {}
+
+    std::shared_ptr<AstNode> SemaVariableDeclNode(Token& token, CType* ctype);
     
     std::shared_ptr<AstNode> SemaAssignExprNode(
+                                    Token& token,
                                     std::shared_ptr<AstNode> left, 
                                     std::shared_ptr<AstNode> right);
 
-    std::shared_ptr<AstNode> SemaVariableAccessNode(const llvm::StringRef& name);
+    std::shared_ptr<AstNode> SemaVariableAccessNode(Token& token);
 
     std::shared_ptr<AstNode> SemaBinaryExprNode(
                                     std::shared_ptr<AstNode> left, 
                                     std::shared_ptr<AstNode> right, 
                                     OpCode op);
 
-    std::shared_ptr<AstNode> SemaNumberExprNode(int number, CType* ctype);
+    std::shared_ptr<AstNode> SemaNumberExprNode(Token& token, CType* ctype);
 };
 
 #endif  // SEMA_H_
