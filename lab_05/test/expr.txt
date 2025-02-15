@@ -1,9 +1,12 @@
-int a, b = 4, c = 0;
+int a = 0, b = 4, c = 0-100;
 b = 1000;
 
 if (c)
-    a = 10;
+    if (a)
+        a = 13;
+    else
+        a = 23;
 else
-    a = 100;
+    a = 200;
 
-a + b;
+a + b + c;

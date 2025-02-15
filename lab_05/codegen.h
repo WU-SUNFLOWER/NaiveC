@@ -22,6 +22,16 @@ class CodeGen : public Visitor {
 
     llvm::StringMap<std::pair<llvm::Value*, llvm::Type*>> variable_map_;
 
+    llvm::Function* cur_func_ { nullptr };
+
+    void SetCurrentFunc(llvm::Function* func) {
+        cur_func_ = func;
+    }
+
+    llvm::Function* GetCurrentFunc() const {
+        return cur_func_;
+    }
+
  public:
     explicit CodeGen(std::shared_ptr<Program> prog);
 
