@@ -19,6 +19,8 @@ enum class TokenType {
     kSlash,         // '/'
     kLParent,       // '('
     kRParent,       // ')'
+    kLBrace,        // '{'
+    kRBrace,        // '}'
     kSemi,          // ';'
 
     kIdentifier,    // (a-zA-Z_)(a-zA-Z0-9_)*

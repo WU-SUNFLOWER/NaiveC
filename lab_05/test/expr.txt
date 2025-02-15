@@ -1,12 +1,16 @@
 int a = 0, b = 4, c = 0-100;
 b = 1000;
 
-if (c)
-    if (a)
+if (c) {
+    if (a) {
         a = 13;
-    else
+        c = 64;
+    } else {
         a = 23;
-else
+        c = 89;
+    }
+} else {
     a = 200;
+}
 
 a + b + c;

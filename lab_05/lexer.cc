@@ -119,6 +119,12 @@ void Lexer::GetNextToken(Token& token) {
             case ')':
                 token.type_ = TokenType::kRParent;
                 break;
+            case '{':
+                token.type_ = TokenType::kLBrace;
+                break;
+            case '}':
+                token.type_ = TokenType::kRBrace;
+                break;
             case ';':
                 token.type_ = TokenType::kSemi;
                 break;

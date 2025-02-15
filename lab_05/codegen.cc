@@ -60,6 +60,13 @@ llvm::Value *CodeGen::VisitDeclStmt(DeclStmt* decl_stmt) {
     return nullptr;
 }
 
+llvm::Value *CodeGen::VisitBlockStmt(BlockStmt* block_stmt) {
+    for (const auto& node : block_stmt->nodes_) {
+        node->Accept(this);
+    }
+    return nullptr;
+}
+
 llvm::Value *CodeGen::VisitIfStmt(IfStmt* if_stmt) {
     auto cond_block = llvm::BasicBlock::Create(context_, "cond", GetCurrentFunc());
     auto then_block = llvm::BasicBlock::Create(context_, "then", GetCurrentFunc());

@@ -19,6 +19,9 @@ class Sema {
  public:
     explicit Sema(DiagEngine& diag_engine) : diag_engine_(diag_engine) {}
 
+    void EnterScope();
+    void ExitScope();
+
     std::shared_ptr<AstNode> SemaVariableDeclNode(Token& token, CType* ctype);
     
     std::shared_ptr<AstNode> SemaAssignExprNode(

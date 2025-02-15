@@ -11,7 +11,7 @@ Scope::Scope() {
 }
 
 void Scope::EnterScope() {
-    envs_.push_back(std::make_shared<Env>());
+    envs_.emplace_back(std::make_shared<Env>());
 }
 
 void Scope::ExitScope() {

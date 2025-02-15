@@ -28,6 +28,7 @@ class Parser {
     std::shared_ptr<AstNode> ParseDeclStmt();
     std::shared_ptr<AstNode> ParseExprStmt();
     std::shared_ptr<AstNode> ParseIfStmt();
+    std::shared_ptr<AstNode> ParseBlockStmt();
     
     std::shared_ptr<AstNode> ParseAssignExpr();
     std::shared_ptr<AstNode> ParseExpr();

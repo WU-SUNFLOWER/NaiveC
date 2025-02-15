@@ -38,6 +38,7 @@ class CodeGen : public Visitor {
     llvm::Value* VisitProgram(Program*) override;
 
     llvm::Value* VisitDeclStmt(DeclStmt*) override;
+    llvm::Value* VisitBlockStmt(BlockStmt*) override;
     llvm::Value* VisitIfStmt(IfStmt*) override;
 
     llvm::Value* VisitNumberExpr(NumberExpr*) override;

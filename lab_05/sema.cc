@@ -9,6 +9,14 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Casting.h"
 
+void Sema::EnterScope() {
+    scope_.EnterScope();
+}
+
+void Sema::ExitScope() {
+    scope_.EnterScope();
+}
+
 std::shared_ptr<AstNode> Sema::SemaVariableDeclNode(Token& token, CType *ctype) {
     // 1. Has the variable name already been defined?
     auto name = token.GetContent();

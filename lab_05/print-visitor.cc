@@ -26,6 +26,16 @@ llvm::Value *PrintVisitor::VisitDeclStmt(DeclStmt* decl_stmt) {
     return nullptr;
 }
 
+llvm::Value *PrintVisitor::VisitBlockStmt(BlockStmt* block_stmt) {
+    llvm::outs() << "{\n";
+    for (const auto& node : block_stmt->nodes_) {
+        llvm::outs() << "   ";
+        node->Accept(this);
+    }
+    llvm::outs() << "\n}\n";
+    return nullptr;
+}
+
 llvm::Value *PrintVisitor::VisitIfStmt(IfStmt* if_stmt) {
     llvm::outs() << "if (";
     if_stmt->cond_node_->Accept(this);

@@ -22,6 +22,7 @@ class VariableDecl;
 class AssignExpr;
 class IfStmt;
 class DeclStmt;
+class BlockStmt;
 
 class Visitor {
  public:
@@ -30,6 +31,7 @@ class Visitor {
     virtual llvm::Value* VisitProgram(Program*) = 0;
 
     virtual llvm::Value* VisitDeclStmt(DeclStmt*) = 0;
+    virtual llvm::Value* VisitBlockStmt(BlockStmt*) = 0;
     virtual llvm::Value* VisitIfStmt(IfStmt*) = 0;
 
     virtual llvm::Value* VisitNumberExpr(NumberExpr*) = 0;
@@ -43,12 +45,14 @@ class AstNode {
  public:
     enum class AstNodeKind {
         kDeclStmt,
+        kBlockStmt,
+        kIfStmt,
+
         kVariableDecl,
         kBinaryExpr,
         kNumberExpr,
         kVariableAccessExpr,
         kAssignExpr,
-        kIfStmt,
     };
 
  private:
@@ -99,21 +103,24 @@ class DeclStmt : public AstNode {
     }
 };
 
-class VariableDecl : public AstNode {
+class BlockStmt : public AstNode {
  public:
-    //llvm::StringRef name_;
+    std::vector<std::shared_ptr<AstNode>> nodes_;
 
-    VariableDecl() : AstNode(AstNodeKind::kVariableDecl) {}
+    BlockStmt() : AstNode(AstNodeKind::kBlockStmt) {}
 
-    /*
-    const llvm::StringRef& GetName() const {
-        return name_;
+    llvm::Value* Accept(Visitor* vis) override {
+        return vis->VisitBlockStmt(this);
     }
 
-    void SetName(const llvm::StringRef& name) {
-        name_ = name;
-    }    
-    */
+    static bool classof(const AstNode* node) {
+        return node->GetNodeKind() == AstNodeKind::kBlockStmt;
+    }
+};
+
+class VariableDecl : public AstNode {
+ public:
+    VariableDecl() : AstNode(AstNodeKind::kVariableDecl) {}
 
     llvm::StringRef GetVariableName() const {
         return GetBoundToken().GetContent();
@@ -156,8 +163,6 @@ class BinaryExpr : public AstNode {
 
 class NumberExpr : public AstNode {
  public:
-    //int number_;
-
     NumberExpr() : AstNode(AstNodeKind::kNumberExpr) {}
 
     int GetNumber() const {
@@ -176,19 +181,7 @@ class NumberExpr : public AstNode {
 
 class VariableAccessExpr : public AstNode {
  public:
-    //llvm::StringRef name_;
-
     VariableAccessExpr() : AstNode(AstNodeKind::kVariableAccessExpr) {}
-
-    /*
-    const llvm::StringRef& GetName() const {
-        return name_;
-    }
-
-    void SetName(const llvm::StringRef& name) {
-        name_ = name;
-    }    
-    */
 
     llvm::StringRef GetVariableName() const {
         return GetBoundToken().GetContent();

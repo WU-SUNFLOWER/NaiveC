@@ -43,6 +43,9 @@ std::shared_ptr<AstNode> Parser::ParseStmt() {
     else if (TOKEN_TYPE_IS(TokenType::kIf)) {
         return ParseIfStmt();
     }
+    else if (TOKEN_TYPE_IS(TokenType::kLBrace)) {
+        return ParseBlockStmt();
+    }
 
 #undef TOKEN_TYPE_IS
 
@@ -113,6 +116,22 @@ std::shared_ptr<AstNode> Parser::ParseIfStmt() {
     }
 
     return sema_.SemaIfStmtNode(cond_expr, then_stmt, else_stmt);
+}
+
+std::shared_ptr<AstNode> Parser::ParseBlockStmt() {
+    auto block_stmt = std::make_shared<BlockStmt>();
+
+    Consume(TokenType::kLBrace);
+    sema_.EnterScope();
+    
+    while (token_.GetType() != TokenType::kRBrace) {
+        block_stmt->nodes_.emplace_back(ParseStmt());
+    }
+    
+    sema_.ExitScope();
+    Consume(TokenType::kRBrace);
+
+    return block_stmt;
 }
 
 std::shared_ptr<AstNode> Parser::ParseAssignExpr() {
