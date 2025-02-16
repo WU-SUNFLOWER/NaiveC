@@ -10,6 +10,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/ADT/DenseMap.h"
 
 #include "ast.h"
 #include "parser.h"
@@ -32,6 +33,9 @@ class CodeGen : public Visitor {
         return cur_func_;
     }
 
+    llvm::DenseMap<AstNode*, llvm::BasicBlock*> break_block_map_;
+    llvm::DenseMap<AstNode*, llvm::BasicBlock*> continue_block_map_;
+
  public:
     explicit CodeGen(std::shared_ptr<Program> prog);
 
@@ -41,6 +45,8 @@ class CodeGen : public Visitor {
     llvm::Value* VisitBlockStmt(BlockStmt*) override;
     llvm::Value* VisitIfStmt(IfStmt*) override;
     llvm::Value* VisitForStmt(ForStmt*) override;
+    llvm::Value* VisitBreakStmt(BreakStmt*) override;
+    llvm::Value* VisitContinueStmt(ContinueStmt*) override;
 
     llvm::Value* VisitNumberExpr(NumberExpr*) override;
     llvm::Value* VisitBinaryExpr(BinaryExpr*) override;

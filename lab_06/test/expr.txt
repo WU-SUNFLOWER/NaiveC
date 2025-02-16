@@ -1,6 +1,13 @@
 int e = 0;
 for (int i = 0; i < 100; i = i + 1) {
-    e = e + i;
+    if (i == 10) {
+        continue;
+    }
+    for (int j = 0; j < 10; j = j + 1) {
+        e = e + i;
+        if (j >= 8) {
+            break;
+        }
+    }
 }
-
-e + i;
+e;

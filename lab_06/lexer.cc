@@ -102,6 +102,12 @@ void Lexer::GetNextToken(Token& token) {
         else if (IS_KEYWORD("for")) {
             token.type_ = TokenType::kFor;
         }
+        else if (IS_KEYWORD("break")) {
+            token.type_ = TokenType::kBreak;
+        }
+        else if (IS_KEYWORD("continue")) {
+            token.type_ = TokenType::kContinue;
+        }
 #undef IS_KEYWORD
     }
     else {
@@ -277,6 +283,10 @@ llvm::StringRef Token::GetSpellingText(TokenType token_type) {
             return "else";
         case TokenType::kFor:
             return "for";
+        case TokenType::kBreak:
+            return "break";
+        case TokenType::kContinue:
+            return "continue";
         case TokenType::kEOF:
             return "EOF";
         default:

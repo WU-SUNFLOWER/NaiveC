@@ -15,15 +15,19 @@
 
 class Program;
 class AstNode;
+
+class IfStmt;
+class DeclStmt;
+class BlockStmt;
+class ForStmt;
+class BreakStmt;
+class ContinueStmt;
+
 class BinaryExpr;
 class NumberExpr;
 class VariableAccessExpr;
 class VariableDecl;
 class AssignExpr;
-class IfStmt;
-class DeclStmt;
-class BlockStmt;
-class ForStmt;
 
 class Visitor {
  public:
@@ -35,6 +39,8 @@ class Visitor {
     virtual llvm::Value* VisitBlockStmt(BlockStmt*) = 0;
     virtual llvm::Value* VisitIfStmt(IfStmt*) = 0;
     virtual llvm::Value* VisitForStmt(ForStmt*) = 0;
+    virtual llvm::Value* VisitBreakStmt(BreakStmt*) = 0;
+    virtual llvm::Value* VisitContinueStmt(ContinueStmt*) = 0;
 
     virtual llvm::Value* VisitNumberExpr(NumberExpr*) = 0;
     virtual llvm::Value* VisitBinaryExpr(BinaryExpr*) = 0;
@@ -50,6 +56,8 @@ class AstNode {
         kBlockStmt,
         kIfStmt,
         kForStmt,
+        kBreakStmt,
+        kContinueStmt,
 
         kVariableDecl,
         kBinaryExpr,
@@ -153,6 +161,36 @@ class ForStmt : public AstNode {
 
     static bool classof(const AstNode* node) {
         return node->GetNodeKind() == AstNodeKind::kForStmt;
+    }
+};
+
+class BreakStmt : public AstNode {
+ public:
+    std::shared_ptr<AstNode> target_ { nullptr };
+
+    BreakStmt() : AstNode(AstNodeKind::kBreakStmt) {}
+
+    llvm::Value* Accept(Visitor* vis) override {
+        return vis->VisitBreakStmt(this);
+    }
+
+    static bool classof(const AstNode* node) {
+        return node->GetNodeKind() == AstNodeKind::kBreakStmt;
+    }
+};
+
+class ContinueStmt : public AstNode {
+ public:
+    std::shared_ptr<AstNode> target_ { nullptr };
+
+    ContinueStmt() : AstNode(AstNodeKind::kContinueStmt) {}
+
+    llvm::Value* Accept(Visitor* vis) override {
+        return vis->VisitContinueStmt(this);
+    }
+
+    static bool classof(const AstNode* node) {
+        return node->GetNodeKind() == AstNodeKind::kContinueStmt;
     }
 };
 

@@ -37,6 +37,8 @@ enum class TokenType {
     kIf,            // 'if'
     kElse,          // 'else'
     kFor,           // 'for'
+    kBreak,         // 'break'
+    kContinue,      // 'continue'
 
     kEOF,           // The end of file
     kUnknown,

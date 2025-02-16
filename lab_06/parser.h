@@ -18,6 +18,27 @@ class Parser {
     Sema& sema_;
     Token token_ {};
 
+    std::vector<std::shared_ptr<AstNode>> breaked_able_nodes_;
+    std::vector<std::shared_ptr<AstNode>> continued_able_nodes_;
+
+    void AddBreakedAbleNode(std::shared_ptr<AstNode> node) {
+        breaked_able_nodes_.emplace_back(node);
+    }
+
+    void AddContinuedAbleNode(std::shared_ptr<AstNode> node) {
+        continued_able_nodes_.emplace_back(node);
+    }
+
+    void RemoveBreakedAbleNode(std::shared_ptr<AstNode> node) {
+        assert(!breaked_able_nodes_.empty() && breaked_able_nodes_.back() == node);
+        breaked_able_nodes_.pop_back();
+    }
+
+    void RemoveContinuedAbleNode(std::shared_ptr<AstNode> node) {
+        assert(!continued_able_nodes_.empty() && continued_able_nodes_.back() == node);
+        continued_able_nodes_.pop_back();
+    }
+
  public:
     explicit Parser(Lexer& lexer, Sema& sema);
 
@@ -30,6 +51,8 @@ class Parser {
     std::shared_ptr<AstNode> ParseIfStmt();
     std::shared_ptr<AstNode> ParseBlockStmt();
     std::shared_ptr<AstNode> ParseForStmt();
+    std::shared_ptr<AstNode> ParseBreakStmt();
+    std::shared_ptr<AstNode> ParseContinueStmt();
     
     std::shared_ptr<AstNode> ParseExpr();
     std::shared_ptr<AstNode> ParseAssignExpr();

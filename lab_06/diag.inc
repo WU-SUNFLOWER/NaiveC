@@ -11,6 +11,8 @@ NAIVEC_DIAG(ErrUnknownChar, Error, "unknown char '{0}'")
 
 // parser
 NAIVEC_DIAG(ErrExpected, Error, "expected '{0}', but found '{1}'")
+NAIVEC_DIAG(ErrBreakStmt, Error, "'break' statement not in loop or switch statement")
+NAIVEC_DIAG(ErrContinueStmt, Error, "'continue' statement not in loop statement")
 
 // sema
 NAIVEC_DIAG(ErrRedefined, Error, "redefined symbol '{0}'")

@@ -115,6 +115,10 @@ llvm::Value *CodeGen::VisitForStmt(ForStmt* for_stmt) {
     auto body_block = llvm::BasicBlock::Create(context_, "for.body", GetCurrentFunc());
     auto final_block = llvm::BasicBlock::Create(context_, "for.final", GetCurrentFunc());
 
+    // Don't forget to bind the statement node with its final block, and inc block.
+    break_block_map_.insert({ for_stmt, final_block });
+    continue_block_map_.insert({ for_stmt, inc_block });
+
     // Build init block.
     ir_builder_.CreateBr(init_block);
     ir_builder_.SetInsertPoint(init_block);
@@ -149,6 +153,30 @@ llvm::Value *CodeGen::VisitForStmt(ForStmt* for_stmt) {
 
     // Let our code generator to generate later code after for statement in final block...
     ir_builder_.SetInsertPoint(final_block);
+
+    // Don't forget to unbind the statement node with its final block, and inc block.
+    break_block_map_.erase(for_stmt);
+    continue_block_map_.erase(for_stmt);
+
+    return nullptr;
+}
+
+llvm::Value *CodeGen::VisitBreakStmt(BreakStmt* stmt) {
+    llvm::BasicBlock* target_block = break_block_map_.at(stmt->target_.get());
+    ir_builder_.CreateBr(target_block);
+
+    llvm::BasicBlock* death_block = llvm::BasicBlock::Create(context_, "for.break.death", GetCurrentFunc());
+    ir_builder_.SetInsertPoint(death_block);
+
+    return nullptr;
+}
+
+llvm::Value *CodeGen::VisitContinueStmt(ContinueStmt* stmt) {
+    llvm::BasicBlock* target_block = continue_block_map_.at(stmt->target_.get());
+    ir_builder_.CreateBr(target_block);
+
+    llvm::BasicBlock* death_block = llvm::BasicBlock::Create(context_, "for.continue.death", GetCurrentFunc());
+    ir_builder_.SetInsertPoint(death_block);
 
     return nullptr;
 }
