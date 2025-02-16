@@ -16,6 +16,7 @@ class PrintVisitor : public Visitor {
     llvm::Value* VisitDeclStmt(DeclStmt*) override;
     llvm::Value* VisitBlockStmt(BlockStmt*) override;
     llvm::Value* VisitIfStmt(IfStmt*) override;
+    llvm::Value* VisitForStmt(ForStmt*) override;
 
     llvm::Value* VisitNumberExpr(NumberExpr*) override;
     llvm::Value* VisitBinaryExpr(BinaryExpr*) override;

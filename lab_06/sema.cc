@@ -14,7 +14,7 @@ void Sema::EnterScope() {
 }
 
 void Sema::ExitScope() {
-    scope_.EnterScope();
+    scope_.ExitScope();
 }
 
 std::shared_ptr<AstNode> Sema::SemaVariableDeclNode(Token& token, CType *ctype) {

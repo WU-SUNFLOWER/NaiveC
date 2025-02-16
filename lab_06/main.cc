@@ -35,14 +35,13 @@ int main(int argc, char* argv[]) {
 
     Lexer lexer(mgr, diag_engine);
 
-    /*
+/*
     Token token;
     while (token.GetType() != TokenType::kEOF) {
         lexer.GetNextToken(token);
         token.Dump();
     }
-
-    */
+*/
 
     Sema sema(diag_engine);
     Parser parser(lexer, sema);

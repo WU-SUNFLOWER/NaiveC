@@ -108,6 +108,51 @@ llvm::Value *CodeGen::VisitIfStmt(IfStmt* if_stmt) {
     return nullptr;
 }
 
+llvm::Value *CodeGen::VisitForStmt(ForStmt* for_stmt) {
+    auto init_block = llvm::BasicBlock::Create(context_, "for.init", GetCurrentFunc());
+    auto cond_block = llvm::BasicBlock::Create(context_, "for.cond", GetCurrentFunc());
+    auto inc_block = llvm::BasicBlock::Create(context_, "for.inc", GetCurrentFunc());
+    auto body_block = llvm::BasicBlock::Create(context_, "for.body", GetCurrentFunc());
+    auto final_block = llvm::BasicBlock::Create(context_, "for.final", GetCurrentFunc());
+
+    // Build init block.
+    ir_builder_.CreateBr(init_block);
+    ir_builder_.SetInsertPoint(init_block);
+    if (for_stmt->init_node_) {
+        for_stmt->init_node_->Accept(this);
+    }
+    ir_builder_.CreateBr(cond_block);
+
+    // Build cond block.
+    ir_builder_.SetInsertPoint(cond_block);
+    if (for_stmt->cond_node_) {
+        llvm::Value* cond_result = for_stmt->cond_node_->Accept(this);
+        llvm::Value* is_cond_result_true = ir_builder_.CreateICmpNE(cond_result, ir_builder_.getInt32(0));
+        ir_builder_.CreateCondBr(is_cond_result_true, body_block, final_block);
+    } else {
+        ir_builder_.CreateBr(body_block);
+    }
+
+    // Build body block.
+    ir_builder_.SetInsertPoint(body_block);
+    if (for_stmt->body_node_) {
+        for_stmt->body_node_->Accept(this);
+    }
+    ir_builder_.CreateBr(inc_block);
+
+    // Build inc block.
+    ir_builder_.SetInsertPoint(inc_block);
+    if (for_stmt->inc_node_) {
+        for_stmt->inc_node_->Accept(this);
+    }
+    ir_builder_.CreateBr(cond_block);
+
+    // Let our code generator to generate later code after for statement in final block...
+    ir_builder_.SetInsertPoint(final_block);
+
+    return nullptr;
+}
+
 llvm::Value* CodeGen::VisitBinaryExpr(BinaryExpr *binary_expr) {
     llvm::Value* left = binary_expr->left_->Accept(this);
     llvm::Value* right = binary_expr->right_->Accept(this);

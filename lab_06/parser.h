@@ -29,6 +29,7 @@ class Parser {
     std::shared_ptr<AstNode> ParseExprStmt();
     std::shared_ptr<AstNode> ParseIfStmt();
     std::shared_ptr<AstNode> ParseBlockStmt();
+    std::shared_ptr<AstNode> ParseForStmt();
     
     std::shared_ptr<AstNode> ParseExpr();
     std::shared_ptr<AstNode> ParseAssignExpr();
@@ -47,6 +48,8 @@ class Parser {
     DiagEngine& GetDiagEngine() const {
       return lexer_.GetDiagEngine();
     }
+
+    bool CurrentTokenIsTypeName() const;
 };
 
 #endif  // PARSER_H_

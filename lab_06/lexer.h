@@ -32,9 +32,11 @@ enum class TokenType {
     kIdentifier,    // (a-zA-Z_)(a-zA-Z0-9_)*
     kEqual,         // '='
     kComma,         // ','
+
     kInt,           // 'int'
     kIf,            // 'if'
     kElse,          // 'else'
+    kFor,           // 'for'
 
     kEOF,           // The end of file
     kUnknown,

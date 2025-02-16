@@ -87,7 +87,9 @@ void Lexer::GetNextToken(Token& token) {
         token.content_ptr_ = start;
         token.content_length_ = buf_ - start;
 
-#define IS_KEYWORD(kw) (strncmp(token.content_ptr_, kw, token.content_length_) == 0)
+        llvm::StringRef identifier = llvm::StringRef(token.content_ptr_, token.content_length_);
+        
+#define IS_KEYWORD(kw) (identifier == kw)
         if (IS_KEYWORD("int")) {
             token.type_ = TokenType::kInt;
         }
@@ -96,6 +98,9 @@ void Lexer::GetNextToken(Token& token) {
         }
         else if (IS_KEYWORD("else")) {
             token.type_ = TokenType::kElse;
+        }
+        else if (IS_KEYWORD("for")) {
+            token.type_ = TokenType::kFor;
         }
 #undef IS_KEYWORD
     }
@@ -270,6 +275,8 @@ llvm::StringRef Token::GetSpellingText(TokenType token_type) {
             return "if";
         case TokenType::kElse:
             return "else";
+        case TokenType::kFor:
+            return "for";
         case TokenType::kEOF:
             return "EOF";
         default:

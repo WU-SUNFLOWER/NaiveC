@@ -49,6 +49,28 @@ llvm::Value *PrintVisitor::VisitIfStmt(IfStmt* if_stmt) {
     return nullptr;
 }
 
+llvm::Value *PrintVisitor::VisitForStmt(ForStmt* for_stmt) {
+    llvm::outs() << "for (";
+    if (for_stmt->init_node_) {
+        for_stmt->init_node_->Accept(this);
+    }
+    llvm::outs() << "; ";
+    if (for_stmt->cond_node_) {
+        for_stmt->cond_node_->Accept(this);
+    }
+    llvm::outs() << "; ";
+    if (for_stmt->inc_node_) {
+        for_stmt->inc_node_->Accept(this);
+    }
+    llvm::outs() << ") ";
+    if (for_stmt->body_node_) {
+        for_stmt->body_node_->Accept(this);
+    }
+    llvm::outs() << "; ";
+    
+    return nullptr;
+}
+
 llvm::Value* PrintVisitor::VisitBinaryExpr(BinaryExpr *binary_expr) {
     binary_expr->left_->Accept(this);
 

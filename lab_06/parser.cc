@@ -37,7 +37,7 @@ std::shared_ptr<AstNode> Parser::ParseStmt() {
         Advance();
         return nullptr;
     }
-    else if (TOKEN_TYPE_IS(TokenType::kInt)) {
+    else if (CurrentTokenIsTypeName()) {
         return ParseDeclStmt();
     } 
     else if (TOKEN_TYPE_IS(TokenType::kIf)) {
@@ -45,6 +45,9 @@ std::shared_ptr<AstNode> Parser::ParseStmt() {
     }
     else if (TOKEN_TYPE_IS(TokenType::kLBrace)) {
         return ParseBlockStmt();
+    }
+    else if (TOKEN_TYPE_IS(TokenType::kFor)) {
+        return ParseForStmt();
     }
 
 #undef TOKEN_TYPE_IS
@@ -127,7 +130,53 @@ std::shared_ptr<AstNode> Parser::ParseBlockStmt() {
     return block_stmt;
 }
 
+std::shared_ptr<AstNode> Parser::ParseForStmt() {
+    Consume(TokenType::kFor);
+    Consume(TokenType::kLParent);
+
+    // For statement has its own scope.
+    sema_.EnterScope();
+
+    std::shared_ptr<AstNode> init_node = nullptr;
+    std::shared_ptr<AstNode> cond_node = nullptr;
+    std::shared_ptr<AstNode> inc_node = nullptr;
+    std::shared_ptr<AstNode> body_node = nullptr;
+
+    // Build all the sub nodes of forstmt node.
+    if (CurrentTokenIsTypeName()) {
+        init_node = ParseDeclStmt();
+    } else {
+        init_node = ParseExprStmt();
+    }
+
+    cond_node = ParseExprStmt();
+
+    if (token_.GetType() != TokenType::kRParent) {
+        inc_node = ParseExpr();
+    }
+    Consume(TokenType::kRParent);
+
+    body_node = ParseStmt();
+
+    // Build forstmt node.
+    auto for_stmt_node = std::make_shared<ForStmt>();
+    for_stmt_node->init_node_ = init_node;
+    for_stmt_node->cond_node_ = cond_node;
+    for_stmt_node->inc_node_ = inc_node;
+    for_stmt_node->body_node_ = body_node;
+
+    // Don't forget to exit the scope of for statement!
+    sema_.ExitScope();
+
+    return for_stmt_node;
+}
+
 std::shared_ptr<AstNode> Parser::ParseExprStmt() {
+    if (token_.GetType() == TokenType::kSemi) {
+        Advance();
+        return nullptr;
+    }
+
     auto expr = ParseExpr();
     Consume(TokenType::kSemi);
     return expr;
@@ -320,4 +369,11 @@ bool Parser::Consume(TokenType token_type) {
 
 void Parser::Advance() {
     lexer_.GetNextToken(token_);
+}
+
+bool Parser::CurrentTokenIsTypeName() const {
+    if (token_.GetType() == TokenType::kInt) {
+        return true;
+    }
+    return false;
 }

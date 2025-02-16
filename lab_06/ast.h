@@ -23,6 +23,7 @@ class AssignExpr;
 class IfStmt;
 class DeclStmt;
 class BlockStmt;
+class ForStmt;
 
 class Visitor {
  public:
@@ -33,6 +34,7 @@ class Visitor {
     virtual llvm::Value* VisitDeclStmt(DeclStmt*) = 0;
     virtual llvm::Value* VisitBlockStmt(BlockStmt*) = 0;
     virtual llvm::Value* VisitIfStmt(IfStmt*) = 0;
+    virtual llvm::Value* VisitForStmt(ForStmt*) = 0;
 
     virtual llvm::Value* VisitNumberExpr(NumberExpr*) = 0;
     virtual llvm::Value* VisitBinaryExpr(BinaryExpr*) = 0;
@@ -47,6 +49,7 @@ class AstNode {
         kDeclStmt,
         kBlockStmt,
         kIfStmt,
+        kForStmt,
 
         kVariableDecl,
         kBinaryExpr,
@@ -115,6 +118,41 @@ class BlockStmt : public AstNode {
 
     static bool classof(const AstNode* node) {
         return node->GetNodeKind() == AstNodeKind::kBlockStmt;
+    }
+};
+
+class IfStmt : public AstNode {
+ public:
+    std::shared_ptr<AstNode> cond_node_;
+    std::shared_ptr<AstNode> then_node_;
+    std::shared_ptr<AstNode> else_node_;
+
+    IfStmt() : AstNode(AstNodeKind::kIfStmt) {}
+
+    llvm::Value* Accept(Visitor* vis) override {
+        return vis->VisitIfStmt(this);
+    }
+
+    static bool classof(const AstNode* node) {
+        return node->GetNodeKind() == AstNodeKind::kIfStmt;
+    }
+};
+
+class ForStmt : public AstNode {
+ public:
+    std::shared_ptr<AstNode> init_node_;
+    std::shared_ptr<AstNode> cond_node_;
+    std::shared_ptr<AstNode> inc_node_;
+    std::shared_ptr<AstNode> body_node_;
+
+    ForStmt() : AstNode(AstNodeKind::kForStmt) {}
+
+    llvm::Value* Accept(Visitor* vis) override {
+        return vis->VisitForStmt(this);
+    }
+
+    static bool classof(const AstNode* node) {
+        return node->GetNodeKind() == AstNodeKind::kForStmt;
     }
 };
 
@@ -227,23 +265,6 @@ class AssignExpr : public AstNode {
     // Provide support for LLVM RTTI
     static bool classof(const AstNode* node) {
         return node->GetNodeKind() == AstNodeKind::kAssignExpr;
-    }
-};
-
-class IfStmt : public AstNode {
- public:
-    std::shared_ptr<AstNode> cond_node_;
-    std::shared_ptr<AstNode> then_node_;
-    std::shared_ptr<AstNode> else_node_;
-
-    IfStmt() : AstNode(AstNodeKind::kIfStmt) {}
-
-    llvm::Value* Accept(Visitor* vis) override {
-        return vis->VisitIfStmt(this);
-    }
-
-    static bool classof(const AstNode* node) {
-        return node->GetNodeKind() == AstNodeKind::kIfStmt;
     }
 };
 
