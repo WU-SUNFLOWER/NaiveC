@@ -42,7 +42,7 @@ class Parser {
  public:
     explicit Parser(Lexer& lexer, Sema& sema);
 
-    std::shared_ptr<Program> ParserProgram();
+    std::shared_ptr<Program> ParseProgram();
 
  private:
     std::shared_ptr<AstNode> ParseStmt();

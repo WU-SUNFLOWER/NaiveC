@@ -13,7 +13,7 @@ Parser::Parser(Lexer& lexer, Sema& sema) : lexer_(lexer), sema_(sema) {
     Advance();
 }
 
-std::shared_ptr<Program> Parser::ParserProgram() {
+std::shared_ptr<Program> Parser::ParseProgram() {
     std::vector<std::shared_ptr<AstNode>> nodes;
 
     while (token_.GetType() != TokenType::kEOF) {

@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
 
     Sema sema(diag_engine);
     Parser parser(lexer, sema);
-    auto program = parser.ParserProgram();
+    auto program = parser.ParseProgram();
 
     //PrintVisitor visitor(program);
     

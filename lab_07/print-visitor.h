@@ -8,8 +8,11 @@
 #include "ast.h"
 
 class PrintVisitor : public Visitor {
+ private:
+    llvm::raw_ostream *out_;
+
  public:
-    explicit PrintVisitor(std::shared_ptr<Program> prog);
+    explicit PrintVisitor(std::shared_ptr<Program> program, llvm::raw_ostream *out = &llvm::outs());
 
     llvm::Value* VisitProgram(Program*) override;
 
