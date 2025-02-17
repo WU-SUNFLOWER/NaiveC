@@ -38,3 +38,23 @@ The second goal of this lab is to enable our compiler to support **Logical Opera
 ### Task3
 
 The final goal of this lab is to let our compiler to **Bitwise Operator**, which including `|`, `^`, `&`, `<<`, `>>` and `%`.
+
+```C
+int a = 10;
+int b = 20;
+int c = 10;
+int d = 5;
+int e = 2;
+int f = 3;
+
+int x = a != 10 && a == 10 || b != 20 && c <= 10 || c < 10  && b == 20 ;
+int y = a == 10 && b == 20 && c <= 10 || a != 10 || b != 20 || c < 10;
+
+d = d << 2;
+d = d >> 5;
+d = d & e;
+d = d ^ f;
+d = d % 10;
+d = d | b;
+d = d + x + y;
+```

@@ -225,6 +225,16 @@ enum class OpCode {
     kSub,
     kMul,
     kDiv,
+    kMod,
+
+    kLogicOr,
+    kLogicAnd,
+
+    kBitwiseOr,
+    kBitwiseAnd,
+    kBitwiseXor,
+    kLeftShift,
+    kRightShift,
 };
 
 class BinaryExpr : public AstNode {

@@ -13,40 +13,44 @@
 
 enum class TokenType {
     kNumber,
-    kPlus,          // '+'
-    kMinus,         // '-'
-    kStar,          // '*'
-    kSlash,         // '/'
-    kLParent,       // '('
-    kRParent,       // ')'
-    kLBrace,        // '{'
-    kRBrace,        // '}'
-    kEqualEqual,    // '=='
-    kNotEqual,      // '!='
-    kLess,          // '<'
-    kLessEqual,     // '<='
-    kGreater,       // '>'
-    kGreaterEqual,  // '>='
-    kPipePipe,      // '||'
-    kPipe,          // '|'
-    kAmpAmp,        // '&&'
-    kAmp,           // '&'
-    kPercent,       // '%'
+    kPlus,              // '+'
+    kMinus,             // '-'
+    kStar,              // '*'
+    kSlash,             // '/'
+    kLParent,           // '('
+    kRParent,           // ')'
+    kLBrace,            // '{'
+    kRBrace,            // '}'
+    kNot,               // '!'
+    kEqualEqual,        // '=='
+    kNotEqual,          // '!='
+    kLess,              // '<'
+    kLessEqual,         // '<='
+    kGreater,           // '>'
+    kGreaterEqual,      // '>='
+    kPipePipe,          // '||'
+    kPipe,              // '|'
+    kAmpAmp,            // '&&'
+    kAmp,               // '&'
+    kPercent,           // '%'
+    kLessLess,          // '<<'
+    kGreaterGreater,    // '>>'
+    kCaret,             // '^'
 
-    kSemi,          // ';'
+    kSemi,              // ';'
 
-    kIdentifier,    // (a-zA-Z_)(a-zA-Z0-9_)*
-    kEqual,         // '='
-    kComma,         // ','
+    kIdentifier,        // (a-zA-Z_)(a-zA-Z0-9_)*
+    kEqual,             // '='
+    kComma,             // ','
 
-    kInt,           // 'int'
-    kIf,            // 'if'
-    kElse,          // 'else'
-    kFor,           // 'for'
-    kBreak,         // 'break'
-    kContinue,      // 'continue'
+    kInt,               // 'int'
+    kIf,                // 'if'
+    kElse,              // 'else'
+    kFor,               // 'for'
+    kBreak,             // 'break'
+    kContinue,          // 'continue'
 
-    kEOF,           // The end of file
+    kEOF,               // The end of file
     kUnknown,
 };
 

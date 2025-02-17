@@ -60,7 +60,17 @@ class Parser {
     std::shared_ptr<AstNode> ParseRelationalExpr();
 
     std::shared_ptr<AstNode> ParseAddExpr();
+    // Including `*`, `/`, `%`
     std::shared_ptr<AstNode> ParseMultiExpr();
+    // Since `||` and `&&` have different priorities, 
+    // we should define different functions to process them separately.
+    std::shared_ptr<AstNode> ParseLogOrExpr();
+    std::shared_ptr<AstNode> ParseLogAndExpr();
+
+    std::shared_ptr<AstNode> ParseBitOrExpr();
+    std::shared_ptr<AstNode> ParseBitXorExpr();
+    std::shared_ptr<AstNode> ParseBitAndExpr();
+    std::shared_ptr<AstNode> ParseBitShiftExpr();
 
     std::shared_ptr<AstNode> ParsePrimaryExpr();
 

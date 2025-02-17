@@ -158,6 +158,18 @@ void Lexer::GetNextToken(Token& token) {
                 token.content_length_ = 1;
                 token.type_ = TokenType::kSlash;
                 break;
+            case '%':
+                ++buf_;
+                token.content_ptr_ = start;
+                token.content_length_ = 1;
+                token.type_ = TokenType::kPercent;
+                break;
+            case '^':
+                ++buf_;
+                token.content_ptr_ = start;
+                token.content_length_ = 1;
+                token.type_ = TokenType::kCaret;
+                break;
             case '(':
                 ++buf_;
                 token.content_ptr_ = start;
@@ -214,9 +226,13 @@ void Lexer::GetNextToken(Token& token) {
                     token.content_ptr_ = start;
                     token.content_length_ = 2;
                     token.type_ = TokenType::kNotEqual;
-                    break;
+                } else {
+                    ++buf_;
+                    token.content_ptr_ = start;
+                    token.content_length_ = 1;
+                    token.type_ = TokenType::kNot;
                 }
-                // If not match, the compiler will throw an error...
+                break;
             }
             case '<': {
                 if (*(buf_ + 1) == '=') {
@@ -224,7 +240,14 @@ void Lexer::GetNextToken(Token& token) {
                     token.content_ptr_ = start;
                     token.content_length_ = 2;
                     token.type_ = TokenType::kLessEqual;
-                } else {
+                } 
+                else if (*(buf_ + 1) == '<') {
+                    buf_ += 2;
+                    token.content_ptr_ = start;
+                    token.content_length_ = 2;
+                    token.type_ = TokenType::kLessLess;
+                }
+                else {
                     ++buf_;
                     token.content_ptr_ = start;
                     token.content_length_ = 1;
@@ -238,11 +261,48 @@ void Lexer::GetNextToken(Token& token) {
                     token.content_ptr_ = start;
                     token.content_length_ = 2;
                     token.type_ = TokenType::kGreaterEqual;
-                } else {
+                }
+                else if (*(buf_ + 1) == '>') {
+                    buf_ += 2;
+                    token.content_ptr_ = start;
+                    token.content_length_ = 2;
+                    token.type_ = TokenType::kGreaterGreater;
+                } 
+                else {
                     ++buf_;
                     token.content_ptr_ = start;
                     token.content_length_ = 1;
                     token.type_ = TokenType::kGreater;
+                }
+                break;
+            }
+            case '|': {
+                if (*(buf_ + 1) == '|') {
+                    buf_ += 2;
+                    token.content_ptr_ = start;
+                    token.content_length_ = 2;
+                    token.type_ = TokenType::kPipePipe;
+                }
+                else {
+                    ++buf_;
+                    token.content_ptr_ = start;
+                    token.content_length_ = 1;
+                    token.type_ = TokenType::kPipe;
+                }
+                break;
+            }
+            case '&': {
+                if (*(buf_ + 1) == '&') {
+                    buf_ += 2;
+                    token.content_ptr_ = start;
+                    token.content_length_ = 2;
+                    token.type_ = TokenType::kAmpAmp;
+                }
+                else {
+                    ++buf_;
+                    token.content_ptr_ = start;
+                    token.content_length_ = 1;
+                    token.type_ = TokenType::kAmp;
                 }
                 break;
             }

@@ -115,6 +115,30 @@ llvm::Value* PrintVisitor::VisitBinaryExpr(BinaryExpr *binary_expr) {
         case OpCode::kDiv:
             llvm::outs() << " / ";
             break;
+        case OpCode::kMod:
+            llvm::outs() << " % ";
+            break;
+        case OpCode::kLogicOr:
+            llvm::outs() << " || ";
+            break;
+        case OpCode::kLogicAnd:
+            llvm::outs() << " && ";
+            break;
+        case OpCode::kBitwiseOr:
+            llvm::outs() << " | ";
+            break;
+        case OpCode::kBitwiseAnd:
+            llvm::outs() << " & ";
+            break;
+        case OpCode::kBitwiseXor:
+            llvm::outs() << " ^ ";
+            break;
+        case OpCode::kLeftShift:
+            llvm::outs() << " << ";
+            break;
+        case OpCode::kRightShift:
+            llvm::outs() << " >> ";
+            break;
         default:
             llvm::errs() << "Unknown opcode: " 
                          << static_cast<int>(binary_expr->op_) 

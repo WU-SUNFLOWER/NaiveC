@@ -34,23 +34,22 @@ int main(int argc, char* argv[]) {
     mgr.AddNewSourceBuffer(std::move(*file), llvm::SMLoc());
 
     Lexer lexer(mgr, diag_engine);
-
+/*
     Token token;
     while (token.GetType() != TokenType::kEOF) {
         lexer.GetNextToken(token);
         token.Dump();
     }
-
-/*
-    Sema sema(diag_engine);
-    Parser parser(lexer, sema);
-    auto program = parser.ParserProgram();
 */
 
 
+    Sema sema(diag_engine);
+    Parser parser(lexer, sema);
+    auto program = parser.ParserProgram();
+
     //PrintVisitor visitor(program);
     
-    //CodeGen generator(program);    
+    CodeGen generator(program);    
 
     return 0;
 }

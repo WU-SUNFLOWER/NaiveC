@@ -182,10 +182,79 @@ llvm::Value *CodeGen::VisitContinueStmt(ContinueStmt* stmt) {
 }
 
 llvm::Value* CodeGen::VisitBinaryExpr(BinaryExpr *binary_expr) {
-    llvm::Value* left = binary_expr->left_->Accept(this);
-    llvm::Value* right = binary_expr->right_->Accept(this);
+    auto op_code = binary_expr->op_;
+    switch (op_code) {
+        // left && right
+        case OpCode::kLogicAnd: {
+            auto left = binary_expr->left_->Accept(this);
+            auto is_left_true = ir_builder_.CreateICmpNE(left, ir_builder_.getInt32(0));
 
-    switch (binary_expr->op_) {
+            auto next_block = llvm::BasicBlock::Create(context_, "next_block", GetCurrentFunc());
+            auto false_block = llvm::BasicBlock::Create(context_, "false_block", GetCurrentFunc());
+            auto merge_block = llvm::BasicBlock::Create(context_, "merge_block", GetCurrentFunc());
+
+            ir_builder_.CreateCondBr(is_left_true, next_block, false_block);
+
+            // Build next_block
+            ir_builder_.SetInsertPoint(next_block);
+            auto right = binary_expr->right_->Accept(this);
+            auto is_right_true = ir_builder_.CreateICmpNE(right, ir_builder_.getInt32(0));
+            is_right_true = ir_builder_.CreateZExt(is_right_true, ir_builder_.getInt32Ty());
+            ir_builder_.CreateBr(merge_block);
+            // Don't forget to update the next_block,
+            // since new block might be created after 
+            // `binary_expr->right_->Accept(this)` is called.
+            next_block = ir_builder_.GetInsertBlock();
+
+            // Build false_block
+            ir_builder_.SetInsertPoint(false_block);
+            ir_builder_.CreateBr(merge_block);
+
+            // Build merge_block
+            ir_builder_.SetInsertPoint(merge_block);
+            auto phi = ir_builder_.CreatePHI(ir_builder_.getInt32Ty(), 2);
+            phi->addIncoming(ir_builder_.getInt32(0), false_block);
+            phi->addIncoming(is_right_true, next_block);
+
+            return phi;
+        }
+        // left || right
+        case OpCode::kLogicOr: {
+            auto left = binary_expr->left_->Accept(this);
+            auto is_left_true = ir_builder_.CreateICmpNE(left, ir_builder_.getInt32(0));
+
+            auto next_block = llvm::BasicBlock::Create(context_, "next_block", GetCurrentFunc());
+            auto true_block = llvm::BasicBlock::Create(context_, "true_block", GetCurrentFunc());
+            auto merge_block = llvm::BasicBlock::Create(context_, "merge_block", GetCurrentFunc());
+
+            ir_builder_.CreateCondBr(is_left_true, true_block, next_block);
+
+            // Build next_block
+            ir_builder_.SetInsertPoint(next_block);
+            auto right = binary_expr->right_->Accept(this);
+            auto is_right_true = ir_builder_.CreateICmpNE(right, ir_builder_.getInt32(0));
+            is_right_true = ir_builder_.CreateZExt(is_right_true, ir_builder_.getInt32Ty());
+            ir_builder_.CreateBr(merge_block);
+            next_block = ir_builder_.GetInsertBlock();
+
+            // Build true_block
+            ir_builder_.SetInsertPoint(true_block);
+            ir_builder_.CreateBr(merge_block);
+
+            // Build merge_block
+            ir_builder_.SetInsertPoint(merge_block);
+            auto phi = ir_builder_.CreatePHI(ir_builder_.getInt32Ty(), 2);
+            phi->addIncoming(ir_builder_.getInt32(1), true_block);
+            phi->addIncoming(is_right_true, next_block);
+
+            return phi;            
+        }
+    }
+
+    auto left = binary_expr->left_->Accept(this);
+    auto right = binary_expr->right_->Accept(this);
+
+    switch (op_code) {
         case OpCode::kEqualEqual: {
             auto val = ir_builder_.CreateICmpEQ(left, right);
             return ir_builder_.CreateIntCast(val, ir_builder_.getInt32Ty(), true);
@@ -218,6 +287,18 @@ llvm::Value* CodeGen::VisitBinaryExpr(BinaryExpr *binary_expr) {
             return ir_builder_.CreateNSWMul(left, right);
         case OpCode::kDiv:
             return ir_builder_.CreateSDiv(left, right);
+        case OpCode::kMod:
+            return ir_builder_.CreateSRem(left, right);
+        case OpCode::kBitwiseAnd:
+            return ir_builder_.CreateAnd(left, right);
+        case OpCode::kBitwiseOr:
+            return ir_builder_.CreateOr(left, right);
+        case OpCode::kBitwiseXor:
+            return ir_builder_.CreateXor(left, right);
+        case OpCode::kLeftShift:
+            return ir_builder_.CreateShl(left, right);
+        case OpCode::kRightShift:
+            return ir_builder_.CreateAShr(left, right);
         default:
             llvm::errs() << "Unknown opcode: " 
                          << static_cast<int>(binary_expr->op_) 
