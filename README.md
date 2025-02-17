@@ -13,3 +13,4 @@ There are the introductions to these labs.
 - Lab_04 [Introduce Diagnostic Engine and Unit Testing into Our Minimalist Compiler](./lab_04/README.md)
 - Lab_05 [Introduce IF Statement into Our Minimalist Compiler](./lab_05/README.md)
 - Lab_06 [Introduce Relationship Expressions & FOR Statement into Our Compiler](./lab_06/README.md)
+- Lab_07 [Introduce Comment & Logical Operator & Bitwise Operator into Our Compiler](./lab_07/README.md)
