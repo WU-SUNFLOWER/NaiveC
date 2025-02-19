@@ -8,6 +8,20 @@
 #include <cstdlib>
 #include <memory>
 
+#include "llvm/IR/Type.h"
+
+class CType;
+class CPrimaryType;
+class CPointerType;
+
+class TypeVisitor {
+ public:
+    virtual ~TypeVisitor() {}
+    
+    virtual llvm::Type* VisitPrimaryType(CPrimaryType*) = 0;
+    virtual llvm::Type* VisitPointerType(CPointerType*) = 0;
+};
+
 class CType {
  public:
     enum class TypeKind {
@@ -26,6 +40,8 @@ class CType {
 
     virtual ~CType() {}
 
+    virtual llvm::Type* Accept(TypeVisitor* vis) = 0;
+
     TypeKind GetKind() const {
         return kind_;
     }
@@ -40,6 +56,10 @@ class CPrimaryType : public CType {
  public:
     CPrimaryType(TypeKind kind, size_t size, size_t align)
         : CType(kind, size, align) {}
+
+    llvm::Type* Accept(TypeVisitor* vis) {
+        return vis->VisitPrimaryType(this);
+    }
 
     static bool classof(const CType* ctype) {
         return ctype->GetKind() == TypeKind::kInt;
@@ -56,6 +76,10 @@ class CPointerType : public CType {
 
     std::shared_ptr<CType> GetBaseType() const {
         return base_type_;
+    }
+
+    llvm::Type* Accept(TypeVisitor* vis) {
+        return vis->VisitPointerType(this);
     }
 
     static bool classof(const CType* ctype) {

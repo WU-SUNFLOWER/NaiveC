@@ -23,13 +23,17 @@ class ForStmt;
 class BreakStmt;
 class ContinueStmt;
 
+class UnaryExpr;
 class BinaryExpr;
 class TernaryExpr;
 
 class NumberExpr;
 class VariableAccessExpr;
 class VariableDecl;
-class AssignExpr;
+class SizeofExpr;
+
+class PostIncExpr;
+class PostDecExpr;
 
 class Visitor {
  public:
@@ -44,13 +48,17 @@ class Visitor {
     virtual llvm::Value* VisitBreakStmt(BreakStmt*) = 0;
     virtual llvm::Value* VisitContinueStmt(ContinueStmt*) = 0;
 
+    virtual llvm::Value* VisitUnaryExpr(UnaryExpr*) = 0;
     virtual llvm::Value* VisitBinaryExpr(BinaryExpr*) = 0;
     virtual llvm::Value* VisitTernaryExpr(TernaryExpr*) = 0;
 
     virtual llvm::Value* VisitNumberExpr(NumberExpr*) = 0;
     virtual llvm::Value* VisitVariableAccessExpr(VariableAccessExpr*) = 0;
     virtual llvm::Value* VisitVariableDecl(VariableDecl*) = 0;
-    virtual llvm::Value* VisitAssignExpr(AssignExpr*) = 0;
+    virtual llvm::Value* VisitSizeofExpr(SizeofExpr*) = 0;
+
+    virtual llvm::Value* VisitPostIncExpr(PostIncExpr*) = 0;
+    virtual llvm::Value* VisitPostDecExpr(PostDecExpr*) = 0;
 };
 
 class AstNode {
@@ -63,18 +71,24 @@ class AstNode {
         kBreakStmt,
         kContinueStmt,
 
-        kVariableDecl,
+        kUnaryExpr,
         kBinaryExpr,
         kTernaryExpr,
+
+        kVariableDecl,
         kNumberExpr,
         kVariableAccessExpr,
-        kAssignExpr,
+        kSizeof,
+
+        kPostIncExpr,
+        kPostDecExpr,
     };
 
  private:
     const AstNodeKind node_kind_;
     std::shared_ptr<CType> ctype_ { nullptr };
     Token bound_token_ {};
+    bool is_lvalue_ { false };
 
  public:
     explicit AstNode(AstNodeKind node_kind) : node_kind_(node_kind) {}
@@ -99,6 +113,14 @@ class AstNode {
 
     AstNodeKind GetNodeKind() const {
         return node_kind_;
+    }
+
+    bool IsLValue() const {
+        return is_lvalue_;
+    }
+
+    void SetLValue(bool flag) {
+        is_lvalue_ = flag;
     }
 
     virtual llvm::Value* Accept(Visitor* vis) = 0;
@@ -219,6 +241,59 @@ class VariableDecl : public AstNode {
     }
 };
 
+enum class UnaryOpCode {
+    // +i
+    kPositive,
+    // -i
+    kNegative,
+    // ++i
+    kSelfIncreasing,
+    // --i
+    kSelfDecreasing,
+    // *i
+    kDereference,
+    // &i
+    kAddress,
+    // !i
+    kLogicalNot,
+    // ~i
+    kBitwiseNot,
+};
+
+class UnaryExpr : public AstNode {
+ public:
+    UnaryOpCode op_;
+    std::shared_ptr<AstNode> sub_node_;
+
+    UnaryExpr() : AstNode(AstNodeKind::kUnaryExpr) {}
+
+    llvm::Value* Accept(Visitor* vis) override {
+        return vis->VisitUnaryExpr(this);
+    }
+
+    // Provide support for LLVM RTTI
+    static bool classof(const AstNode* node) {
+        return node->GetNodeKind() == AstNodeKind::kBinaryExpr;
+    }
+};
+
+class SizeofExpr : public AstNode {
+ public:
+    std::shared_ptr<AstNode> sub_node_ { nullptr };
+    std::shared_ptr<CType> ctype_ { nullptr };
+
+    SizeofExpr() : AstNode(AstNodeKind::kSizeof) {}
+
+    llvm::Value* Accept(Visitor* vis) override {
+        return vis->VisitSizeofExpr(this);
+    }
+
+    // Provide support for LLVM RTTI
+    static bool classof(const AstNode* node) {
+        return node->GetNodeKind() == AstNodeKind::kSizeof;
+    }
+};
+
 enum class BinaryOpCode {
     kEqualEqual,
     kNotEqual,
@@ -331,28 +406,35 @@ class VariableAccessExpr : public AstNode {
     }
 };
 
-class AssignExpr : public AstNode {
+class PostIncExpr : public AstNode {
  public:
-    std::shared_ptr<AstNode> left_;
-    std::shared_ptr<AstNode> right_;
+    std::shared_ptr<AstNode> sub_node_;
 
-    AssignExpr() : AstNode(AstNodeKind::kAssignExpr) {}
-
-    std::shared_ptr<AstNode> GetLeftChild() {
-        return left_;
-    }
-
-    std::shared_ptr<AstNode> GetRightChild() {
-        return right_;
-    }
+    PostIncExpr() : AstNode(AstNodeKind::kPostIncExpr) {}
 
     llvm::Value* Accept(Visitor* vis) override {
-        return vis->VisitAssignExpr(this);
+        return vis->VisitPostIncExpr(this);
     }
 
     // Provide support for LLVM RTTI
     static bool classof(const AstNode* node) {
-        return node->GetNodeKind() == AstNodeKind::kAssignExpr;
+        return node->GetNodeKind() == AstNodeKind::kPostIncExpr;
+    }
+};
+
+class PostDecExpr : public AstNode {
+ public:
+    std::shared_ptr<AstNode> sub_node_;
+
+    PostDecExpr() : AstNode(AstNodeKind::kPostDecExpr) {}
+
+    llvm::Value* Accept(Visitor* vis) override {
+        return vis->VisitPostDecExpr(this);
+    }
+
+    // Provide support for LLVM RTTI
+    static bool classof(const AstNode* node) {
+        return node->GetNodeKind() == AstNodeKind::kPostDecExpr;
     }
 };
 

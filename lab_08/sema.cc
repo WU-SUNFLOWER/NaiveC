@@ -39,26 +39,6 @@ std::shared_ptr<AstNode> Sema::SemaVariableDeclNode(Token& token, std::shared_pt
     return node;
 }
 
-std::shared_ptr<AstNode> Sema::SemaAssignExprNode(
-        Token& token,
-        std::shared_ptr<AstNode> left, 
-        std::shared_ptr<AstNode> right) {
-    assert(left && right);
-
-    if (!llvm::isa<VariableAccessExpr>(left.get())) {
-        const Token& left_token = left->GetBoundToken();
-        diag_engine_.Report(
-                llvm::SMLoc::getFromPointer(left_token.GetRawContentPtr()),
-                Diag::kErrLValue);
-    }
-
-    auto assign_expr = std::make_shared<AssignExpr>();
-    assign_expr->left_ = left;
-    assign_expr->right_ = right;
-
-    return assign_expr;
-}
-
 std::shared_ptr<AstNode> Sema::SemaVariableAccessNode(Token& token) {
     auto name = token.GetContent();
     auto symbol = scope_.FindVarSymbol(name);
@@ -73,20 +53,155 @@ std::shared_ptr<AstNode> Sema::SemaVariableAccessNode(Token& token) {
     auto variable_access_node = std::make_shared<VariableAccessExpr>();
     variable_access_node->SetCType(symbol->GetCType());
     variable_access_node->SetBoundToken(token);
+    variable_access_node->SetLValue(true);
+
     return variable_access_node;
 }
 
 std::shared_ptr<AstNode> Sema::SemaBinaryExprNode(
         std::shared_ptr<AstNode> left, 
         std::shared_ptr<AstNode> right, 
-        BinaryOpCode op) {
+        BinaryOpCode op) 
+{
     assert(left && right);
 
     auto expr = std::make_shared<BinaryExpr>();
     expr->left_ = left;
     expr->right_ = right;
     expr->op_ = op;
+    expr->SetCType(left->GetCType());
+
+    if (op == BinaryOpCode::kAdd || 
+        op == BinaryOpCode::kSub ||
+        op == BinaryOpCode::kAddAssign ||
+        op == BinaryOpCode::kSubAssign) 
+    {
+        if (left->GetCType()->GetKind() == CType::TypeKind::kInt &&
+            right->GetCType()->GetKind() == CType::TypeKind::kPointer) 
+        {
+            expr->SetCType(right->GetCType());
+        }
+    }
+
     return expr;
+}
+
+std::shared_ptr<AstNode> Sema::SemaUnaryExprNode(std::shared_ptr<AstNode> sub, UnaryOpCode op, Token &token) {
+    auto node = std::make_shared<UnaryExpr>();
+    node->op_ = op;
+    node->sub_node_ = sub;
+
+    auto sub_ctype = sub->GetCType();
+    switch (op) {
+        case UnaryOpCode::kPositive:
+        case UnaryOpCode::kNegative:
+        case UnaryOpCode::kLogicalNot:
+        case UnaryOpCode::kBitwiseNot: {
+            if (sub_ctype->GetKind() != CType::TypeKind::kInt) {
+                diag_engine_.Report(
+                    llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
+                    Diag::kErrExpectedType, 
+                    "int type");
+            }
+            node->SetCType(sub_ctype);
+            break;            
+        }
+        case UnaryOpCode::kAddress: {
+            if (!sub->IsLValue()) {
+                diag_engine_.Report(
+                    llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
+                    Diag::kErrExpectedLValue);
+            }
+            node->SetCType(std::make_shared<CPointerType>(sub_ctype));
+            break;            
+        }
+        case UnaryOpCode::kDereference: {
+            if (sub_ctype->GetKind() != CType::TypeKind::kPointer) {
+                diag_engine_.Report(
+                    llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
+                    Diag::kErrExpectedType, 
+                    "pointer type");
+            }
+            if (!sub->IsLValue()) {
+                diag_engine_.Report(
+                    llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
+                    Diag::kErrExpectedLValue);
+            }
+            auto pointer_type = llvm::dyn_cast<CPointerType>(sub_ctype.get());
+            node->SetCType(pointer_type->GetBaseType());
+            node->SetLValue(true);
+            break;            
+        }
+        // We can use `++` or `--` for both integer and pointer variable.
+        case UnaryOpCode::kSelfIncreasing:
+        case UnaryOpCode::kSelfDecreasing: {
+            if (!sub->IsLValue()) {
+                diag_engine_.Report(
+                    llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
+                    Diag::kErrExpectedLValue);
+            }
+            node->SetCType(sub_ctype);
+            break;            
+        }
+    }
+
+    return node;
+}
+
+std::shared_ptr<AstNode> Sema::SemaTernaryExprNode(
+    std::shared_ptr<AstNode> cond_node, 
+    std::shared_ptr<AstNode> then_node, 
+    std::shared_ptr<AstNode> els_node,
+    Token& token)
+{
+    if (then_node->GetCType()->GetKind() != els_node->GetCType()->GetKind()) {
+        diag_engine_.Report(llvm::SMLoc::getFromPointer(token.GetRawContentPtr()), Diag::kErrSameType);
+    }
+
+    auto node = std::make_shared<TernaryExpr>();
+    node->cond_ = cond_node;
+    node->then_ = then_node;
+    node->els_ = els_node;
+    node->SetCType(then_node->GetCType());
+
+    return node;
+}
+
+std::shared_ptr<AstNode> Sema::SemaSizeofExprNode(
+    std::shared_ptr<AstNode> sub, 
+    std::shared_ptr<CType> ctype)
+{
+    auto node = std::make_shared<SizeofExpr>();
+    node->ctype_ = ctype;
+    node->sub_node_ = sub;
+    node->SetCType(node->GetCType());
+    return node;
+}
+
+std::shared_ptr<AstNode> Sema::SemaPostIncExpr(std::shared_ptr<AstNode> sub, Token& token) {
+    if (!sub->IsLValue()) {
+        diag_engine_.Report(
+            llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
+            Diag::kErrExpectedLValue);
+    }
+
+    auto node = std::make_shared<PostIncExpr>();
+    node->sub_node_ = sub;
+    node->SetCType(sub->GetCType());
+    return node;
+}
+
+std::shared_ptr<AstNode> Sema::SemaPostDecExpr(std::shared_ptr<AstNode> sub, Token& token) {
+    if (!sub->IsLValue()) {
+        diag_engine_.Report(
+            llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
+            Diag::kErrExpectedLValue);
+    }
+
+    auto node = std::make_shared<PostDecExpr>();
+    node->sub_node_ = sub;
+    node->SetCType(sub->GetCType());
+    return node;
 }
 
 std::shared_ptr<AstNode> Sema::SemaNumberExprNode(Token& token, std::shared_ptr<CType> ctype) {

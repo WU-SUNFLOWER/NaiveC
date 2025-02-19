@@ -181,7 +181,12 @@ llvm::Value *CodeGen::VisitContinueStmt(ContinueStmt* stmt) {
     return nullptr;
 }
 
-llvm::Value* CodeGen::VisitBinaryExpr(BinaryExpr *binary_expr) {
+llvm::Value *CodeGen::VisitUnaryExpr(UnaryExpr *) {
+    return nullptr;
+}
+
+llvm::Value *CodeGen::VisitBinaryExpr(BinaryExpr *binary_expr)
+{
     auto op_code = binary_expr->op_;
     switch (op_code) {
         // left && right
@@ -345,6 +350,7 @@ llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
     return value;
 }
 
+/*
 llvm::Value* CodeGen::VisitAssignExpr(AssignExpr* assign_node) {
     auto access_node = assign_node->GetLeftChild();
 
@@ -365,6 +371,15 @@ llvm::Value* CodeGen::VisitAssignExpr(AssignExpr* assign_node) {
     // Return our target variable as a lvalue.
     // auto ret = ir_builder_.CreateLoad(variable_ir_type, variable_addr, variable_name);
     return ir_builder_.CreateLoad(variable_ir_type, variable_addr, variable_name);
+}
+*/
+
+llvm::Value *CodeGen::VisitPostIncExpr(PostIncExpr* expr) {
+    return nullptr;
+}
+
+llvm::Value *CodeGen::VisitPostDecExpr(PostDecExpr* expr) {
+    return nullptr;
 }
 
 llvm::Value* CodeGen::VisitNumberExpr(NumberExpr *factor_expr) {

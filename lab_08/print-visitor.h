@@ -6,14 +6,16 @@
 #define PRINT_VISITOR_H_
 
 #include "ast.h"
+#include "type.h"
 
-class PrintVisitor : public Visitor {
+class PrintVisitor : public Visitor, public TypeVisitor {
  private:
     llvm::raw_ostream *out_;
 
  public:
     explicit PrintVisitor(std::shared_ptr<Program> program, llvm::raw_ostream *out = &llvm::outs());
 
+    // Virtual functions of Visitor.
     llvm::Value* VisitProgram(Program*) override;
 
     llvm::Value* VisitDeclStmt(DeclStmt*) override;
@@ -23,13 +25,21 @@ class PrintVisitor : public Visitor {
     llvm::Value* VisitBreakStmt(BreakStmt*) override;
     llvm::Value* VisitContinueStmt(ContinueStmt*) override;
 
+    llvm::Value* VisitUnaryExpr(UnaryExpr*) override;
     llvm::Value* VisitBinaryExpr(BinaryExpr*) override;
     llvm::Value* VisitTernaryExpr(TernaryExpr*) override;
 
     llvm::Value* VisitNumberExpr(NumberExpr*) override;
     llvm::Value* VisitVariableAccessExpr(VariableAccessExpr*) override;
     llvm::Value* VisitVariableDecl(VariableDecl*) override;
-    llvm::Value* VisitAssignExpr(AssignExpr*) override;
+    llvm::Value* VisitSizeofExpr(SizeofExpr*) override;
+
+    llvm::Value* VisitPostIncExpr(PostIncExpr*) override;
+    llvm::Value* VisitPostDecExpr(PostDecExpr*) override;
+
+    // Virtual functions of TypeVisitor.
+    llvm::Type* VisitPrimaryType(CPrimaryType*) override;
+    llvm::Type* VisitPointerType(CPointerType*) override;
 };
 
 #endif  // PRINT_VISITOR_H_

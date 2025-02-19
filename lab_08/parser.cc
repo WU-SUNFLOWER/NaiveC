@@ -9,27 +9,20 @@
 #include <memory>
 #include <utility>
 
+bool IsTypeName(TokenType token_type) {
+    if (token_type == TokenType::kInt) {
+        return true;
+    }
+    return false;
+}
+
+bool IsTypeName(Token token) {
+    return IsTypeName(token.GetType());
+}
+
 Parser::Parser(Lexer& lexer, Sema& sema) : lexer_(lexer), sema_(sema) {
     Advance();
 }
-
-/*
-std::shared_ptr<Program> Parser::ParseProgram() {
-    std::vector<std::shared_ptr<AstNode>> nodes;
-
-    while (token_.GetType() != TokenType::kEOF) {
-        auto stmt = ParseStmt();
-        if (stmt) {
-            nodes.emplace_back(stmt);
-        }
-    }
-
-    auto program = std::make_shared<Program>();
-    program->nodes_ = std::move(nodes);
-
-    return program;
-}
-*/
 
 std::shared_ptr<Program> Parser::ParseProgram() {
     auto prog = std::make_shared<Program>();
@@ -47,9 +40,9 @@ std::shared_ptr<AstNode> Parser::ParseStmt() {
         Advance();
         return nullptr;
     }
-    else if (CurrentTokenIsTypeName()) {
+    else if (IsTypeName(token_)) {
         return ParseDeclStmt();
-    } 
+    }
     else if (TOKEN_TYPE_IS(TokenType::kIf)) {
         return ParseIfStmt();
     }
@@ -94,7 +87,7 @@ std::shared_ptr<AstNode> Parser::ParseDeclarator(std::shared_ptr<CType> variable
     if (token_.GetType() == TokenType::kEqual) {
         Advance();
         VariableDecl* raw_decl_node = llvm::dyn_cast<VariableDecl>(variable_decl_node.get());
-        raw_decl_node->init_node_ = ParseExpr();
+        raw_decl_node->init_node_ = ParseAssignExpr();
     }
 
     return variable_decl_node;
@@ -114,6 +107,9 @@ std::shared_ptr<AstNode> Parser::ParseDeclStmt() {
 
     while (token_.GetType() != TokenType::kSemi) {
         decl_stmt->nodes_.emplace_back(ParseDeclarator(variable_ctype));
+        if (token_.GetType() == TokenType::kComma) {
+            Advance();
+        }
     }
 
     // Don't forget me!
@@ -176,7 +172,7 @@ std::shared_ptr<AstNode> Parser::ParseForStmt() {
     std::shared_ptr<AstNode> body_node = nullptr;
 
     // Build all the sub nodes of forstmt node.
-    if (CurrentTokenIsTypeName()) {
+    if (IsTypeName(token_)) {
         init_node = ParseDeclStmt();
     } else {
         init_node = ParseExprStmt();
@@ -340,18 +336,14 @@ std::shared_ptr<AstNode> Parser::ParseConditionalExpr() {
     if (token_.GetType() != TokenType::kQuestion) {
         return cond_node;
     }
+    Token tmp = token_;
     Consume(TokenType::kQuestion);
 
     auto then_node = ParseExpr();
     Consume(TokenType::kColon);
     auto els_node = ParseConditionalExpr();
 
-    auto node = std::make_shared<TernaryExpr>();
-    node->cond_ = cond_node;
-    node->then_ = then_node;
-    node->els_ = els_node;
-
-    return node;
+    return sema_.SemaTernaryExprNode(cond_node, then_node, els_node, tmp);
 }
 
 // Process "==" or "!=" expression.
@@ -465,35 +457,99 @@ std::shared_ptr<AstNode> Parser::ParseMultiExpr() {
 }
 
 std::shared_ptr<AstNode> Parser::ParseUnaryExpr() {
-    auto left = ParsePostFixExpr();
     if (!CurrentTokenIsUnaryOperator()) {
-        return left;
+        return ParsePostFixExpr();
     }
+
+    if (token_.GetType() == TokenType::kSizeof) {
+        bool is_type_name = false;
+        Consume(TokenType::kSizeof);
+
+        if (token_.GetType() == TokenType::kLParent) {
+            lexer_.SaveState();
+            {
+                Token next;
+                lexer_.GetNextToken(next);
+                if (IsTypeName(next)) {
+                    is_type_name = true;
+                }
+            }
+            lexer_.RestoreState();
+        }
+
+        auto node = std::make_shared<SizeofExpr>();
+        if (is_type_name) {
+            Consume(TokenType::kLParent);
+            auto ctype = ParseTypeName();
+            Consume(TokenType::kRParent);
+            return sema_.SemaSizeofExprNode(nullptr, ctype);
+        } else {
+            return sema_.SemaSizeofExprNode(ParseUnaryExpr(), nullptr);
+        }
+
+        return node;
+    }
+
+    UnaryOpCode op;
     switch (token_.GetType()) {
-        case TokenType::kPlusPlus:
-            break;
-        case TokenType::kMinusMinus:
-            break;
-        case TokenType::kAmp:
-            break;
-        case TokenType::kStar:
-            break;
         case TokenType::kPlus:
+            op = UnaryOpCode::kPositive;
             break;
         case TokenType::kMinus:
+            op = UnaryOpCode::kNegative;
+            break;
+        case TokenType::kPlusPlus:
+            op = UnaryOpCode::kSelfIncreasing;
+            break;
+        case TokenType::kMinusMinus:
+            op = UnaryOpCode::kSelfDecreasing;
+            break;
+        case TokenType::kAmp:
+            op = UnaryOpCode::kAddress;
+            break;
+        case TokenType::kStar:
+            op = UnaryOpCode::kDereference;
             break;
         case TokenType::kTilde:
+            op = UnaryOpCode::kBitwiseNot;
             break;
         case TokenType::kNot:
+            op = UnaryOpCode::kLogicalNot;
             break;
-        case TokenType::kSizeof:
-            break;
+        default:
+            llvm::errs() << "Unknown token type: " 
+                         << static_cast<int>(token_.GetType()) 
+                         << "\n";
     }
+
+    // Consume operator token
+    Advance();
+
+    Token tmp = token_;
+    auto sub_node = ParseUnaryExpr();
+
+    return sema_.SemaUnaryExprNode(sub_node, op, tmp);
 }
 
-std::shared_ptr<AstNode> Parser::ParsePostFixExpr()
-{
-    return std::shared_ptr<AstNode>();
+std::shared_ptr<AstNode> Parser::ParsePostFixExpr() {
+    auto left = ParsePrimaryExpr();
+    while (true) {
+        Token tmp = token_;
+        switch (token_.GetType()) {
+            case TokenType::kPlusPlus: {
+                Advance();
+                left = sema_.SemaPostIncExpr(left, tmp);
+                continue;                
+            }
+            case TokenType::kMinusMinus: {
+                Advance();
+                left = sema_.SemaPostDecExpr(left, tmp);
+                continue;
+            }
+        }
+        break;
+    }
+    return left;
 }
 
 std::shared_ptr<AstNode> Parser::ParseLogOrExpr() {
@@ -605,6 +661,28 @@ std::shared_ptr<AstNode> Parser::ParsePrimaryExpr() {
     return number_expr;
 }
 
+std::shared_ptr<CType> Parser::ParseTypeName() {
+    std::shared_ptr<CType> base_type = nullptr;
+    if (token_.GetType() == TokenType::kInt) {
+        base_type = CType::kIntType;
+    }
+    else {
+        GetDiagEngine().Report(llvm::SMLoc::getFromPointer(token_.GetRawContentPtr()), Diag::kErrType);
+        return nullptr;
+    }
+
+    // Consume typename
+    Advance();
+    
+    // Process pointer typename
+    while (token_.GetType() == TokenType::kStar) {
+        base_type = std::make_shared<CPointerType>(base_type);
+        Consume(TokenType::kStar);
+    }
+
+    return base_type;
+}
+
 bool Parser::Expect(TokenType token_type) {
     if (token_.GetType() == token_type) {
         return true;
@@ -627,13 +705,6 @@ bool Parser::Consume(TokenType token_type) {
 
 void Parser::Advance() {
     lexer_.GetNextToken(token_);
-}
-
-bool Parser::CurrentTokenIsTypeName() const {
-    if (token_.GetType() == TokenType::kInt) {
-        return true;
-    }
-    return false;
 }
 
 bool Parser::CurrentTokenIsAssignOperator() const {

@@ -23,11 +23,6 @@ class Sema {
     void ExitScope();
 
     std::shared_ptr<AstNode> SemaVariableDeclNode(Token& token, std::shared_ptr<CType> ctype);
-    
-    std::shared_ptr<AstNode> SemaAssignExprNode(
-                                    Token& token,
-                                    std::shared_ptr<AstNode> left, 
-                                    std::shared_ptr<AstNode> right);
 
     std::shared_ptr<AstNode> SemaVariableAccessNode(Token& token);
 
@@ -35,6 +30,25 @@ class Sema {
                                     std::shared_ptr<AstNode> left, 
                                     std::shared_ptr<AstNode> right, 
                                     BinaryOpCode op);
+
+    std::shared_ptr<AstNode> SemaUnaryExprNode(
+                                    std::shared_ptr<AstNode> sub, 
+                                    UnaryOpCode op,
+                                    Token& token);
+
+    std::shared_ptr<AstNode> SemaTernaryExprNode(
+                                    std::shared_ptr<AstNode> cond,
+                                    std::shared_ptr<AstNode> then,
+                                    std::shared_ptr<AstNode> els,
+                                    Token& token);
+
+    std::shared_ptr<AstNode> SemaSizeofExprNode(
+                                    std::shared_ptr<AstNode> sub, 
+                                    std::shared_ptr<CType> ctype);
+
+    std::shared_ptr<AstNode> SemaPostIncExpr(std::shared_ptr<AstNode> sub, Token& token);
+
+    std::shared_ptr<AstNode> SemaPostDecExpr(std::shared_ptr<AstNode> sub, Token& token);
 
     std::shared_ptr<AstNode> SemaNumberExprNode(Token& token, std::shared_ptr<CType> ctype);
 

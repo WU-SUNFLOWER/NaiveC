@@ -82,6 +82,8 @@ class Parser {
 
     std::shared_ptr<AstNode> ParsePrimaryExpr();
 
+    std::shared_ptr<CType> ParseTypeName();
+
     bool Expect(TokenType token_type);
     bool Consume(TokenType token_type);
     void Advance();
@@ -90,7 +92,6 @@ class Parser {
       return lexer_.GetDiagEngine();
     }
 
-    bool CurrentTokenIsTypeName() const;
     bool CurrentTokenIsAssignOperator() const;
     bool CurrentTokenIsUnaryOperator() const;
 };

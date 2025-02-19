@@ -48,13 +48,16 @@ class CodeGen : public Visitor {
     llvm::Value* VisitBreakStmt(BreakStmt*) override;
     llvm::Value* VisitContinueStmt(ContinueStmt*) override;
 
+    llvm::Value* VisitUnaryExpr(UnaryExpr*) override;
     llvm::Value* VisitBinaryExpr(BinaryExpr*) override;
     llvm::Value* VisitTernaryExpr(TernaryExpr*) override;
-      
+
     llvm::Value* VisitNumberExpr(NumberExpr*) override;
     llvm::Value* VisitVariableAccessExpr(VariableAccessExpr*) override;
     llvm::Value* VisitVariableDecl(VariableDecl*) override;
-    llvm::Value* VisitAssignExpr(AssignExpr*) override;
+
+    llvm::Value* VisitPostIncExpr(PostIncExpr*) override;
+    llvm::Value* VisitPostDecExpr(PostDecExpr*) override;
 };
 
 #endif  // CODEGEN_H_
