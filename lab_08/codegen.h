@@ -20,7 +20,8 @@ class CodeGen : public Visitor, public TypeVisitor {
  private:
     llvm::LLVMContext context_;
     llvm::IRBuilder<> ir_builder_ { context_ };
-    std::shared_ptr<llvm::Module> module_ { nullptr };
+
+    std::unique_ptr<llvm::Module> module_ { nullptr };
 
     llvm::StringMap<std::pair<llvm::Value*, llvm::Type*>> variable_map_;
 
@@ -39,6 +40,10 @@ class CodeGen : public Visitor, public TypeVisitor {
 
  public:
     explicit CodeGen(std::shared_ptr<Program> prog);
+
+    std::unique_ptr<llvm::Module>& GetModule() {
+        return module_;
+    }
 
     llvm::Value* VisitProgram(Program*) override;
 

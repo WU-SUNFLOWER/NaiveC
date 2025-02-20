@@ -88,6 +88,10 @@ class AstNode {
     const AstNodeKind node_kind_;
     std::shared_ptr<CType> ctype_ { nullptr };
     Token bound_token_ {};
+
+    // An lvalue can be both evaluated (or have its address taken) 
+    // and assigned to.
+    // An rvalue can only be evaluated.
     bool is_lvalue_ { false };
 
  public:
@@ -280,7 +284,7 @@ class UnaryExpr : public AstNode {
 class SizeofExpr : public AstNode {
  public:
     std::shared_ptr<AstNode> sub_node_ { nullptr };
-    std::shared_ptr<CType> ctype_ { nullptr };
+    std::shared_ptr<CType> sub_ctype_ { nullptr };
 
     SizeofExpr() : AstNode(AstNodeKind::kSizeof) {}
 

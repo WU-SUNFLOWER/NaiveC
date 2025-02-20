@@ -122,11 +122,6 @@ std::shared_ptr<AstNode> Sema::SemaUnaryExprNode(std::shared_ptr<AstNode> sub, U
                     Diag::kErrExpectedType, 
                     "pointer type");
             }
-            if (!sub->IsLValue()) {
-                diag_engine_.Report(
-                    llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
-                    Diag::kErrExpectedLValue);
-            }
             auto pointer_type = llvm::dyn_cast<CPointerType>(sub_ctype.get());
             node->SetCType(pointer_type->GetBaseType());
             node->SetLValue(true);
@@ -172,9 +167,9 @@ std::shared_ptr<AstNode> Sema::SemaSizeofExprNode(
     std::shared_ptr<CType> ctype)
 {
     auto node = std::make_shared<SizeofExpr>();
-    node->ctype_ = ctype;
+    node->sub_ctype_ = ctype;
     node->sub_node_ = sub;
-    node->SetCType(node->GetCType());
+    node->SetCType(CType::kIntType);
     return node;
 }
 

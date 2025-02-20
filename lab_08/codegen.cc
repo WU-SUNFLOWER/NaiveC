@@ -9,7 +9,7 @@
 #include "llvm/IR/Verifier.h"
 
 CodeGen::CodeGen(std::shared_ptr<Program> prog) {
-    module_ = std::make_shared<llvm::Module>("Expr Module", context_);
+    module_ = std::make_unique<llvm::Module>("Expr Module", context_);
     VisitProgram(prog.get());
 }
 
@@ -36,18 +36,34 @@ llvm::Value* CodeGen::VisitProgram(Program *prog) {
 
     llvm::Value* result = prog->node_->Accept(this);
 
+/*
     if (result) {
         ir_builder_.CreateCall(print_func, { ir_builder_.CreateGlobalStringPtr("expr val: %d\n"), result });
     } else {
         ir_builder_.CreateCall(print_func, { ir_builder_.CreateGlobalStringPtr("last result isn't an expression!\n") });
     }
+*/
+
+    // llvm::Value* ret = ir_builder_.CreateRet(ir_builder_.getInt32(0));
+
+    llvm::Type* result_type = result->getType();
+    if (result_type->isIntegerTy()) {
+        auto bit_width = llvm::cast<llvm::IntegerType>(result_type)->getBitWidth();
+        if (bit_width < 32) {
+            result = ir_builder_.CreateSExt(result, ir_builder_.getInt32Ty());
+        } else if (bit_width > 32) {
+            result = ir_builder_.CreateTrunc(result, ir_builder_.getInt32Ty());
+        }
+    }
+
+    llvm::Value* ret = ir_builder_.CreateRet(result);
+
+    llvm::verifyFunction(*func, &llvm::outs());
+
+    if (llvm::verifyModule(*module_, &llvm::outs())) {
+        module_->print(llvm::outs(), nullptr);
+    }
     
-
-    llvm::Value* ret = ir_builder_.CreateRet(ir_builder_.getInt32(0));
-    llvm::verifyFunction(*func);
-
-    module_->print(llvm::outs(), nullptr);
-
     return ret;
 }
 
@@ -182,17 +198,68 @@ llvm::Value *CodeGen::VisitContinueStmt(ContinueStmt* stmt) {
 }
 
 llvm::Value *CodeGen::VisitSizeofExpr(SizeofExpr* expr) {
-    if (expr->ctype_) {
-        return ir_builder_.getInt64(expr->ctype_->GetSize());
+    if (expr->sub_ctype_) {
+        return ir_builder_.getInt32(expr->sub_ctype_->GetSize());
     }
     if (expr->sub_node_) {
-        return ir_builder_.getInt64(expr->sub_node_->GetCType()->GetSize());
+        return ir_builder_.getInt32(expr->sub_node_->GetCType()->GetSize());
     }
     assert(0);
     return nullptr;
 }
 
 llvm::Value *CodeGen::VisitUnaryExpr(UnaryExpr* expr) {
+    auto value = expr->sub_node_->Accept(this);
+    auto ctype = expr->sub_node_->GetCType();
+
+    switch (expr->op_) {
+        case UnaryOpCode::kPositive: {
+            return value;
+        }
+        case UnaryOpCode::kNegative: {
+            return ir_builder_.CreateNeg(value);
+        }
+        case UnaryOpCode::kSelfIncreasing: {    
+            llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(value);
+            assert(target);
+            llvm::Value* new_value;
+            if (ctype->GetKind() == CType::TypeKind::kPointer) {
+                new_value = ir_builder_.CreateInBoundsGEP(ctype->Accept(this), value, { ir_builder_.getInt32(1) });
+            } else {
+                new_value = ir_builder_.CreateNSWAdd(value, ir_builder_.getInt32(1));
+            }
+            ir_builder_.CreateStore(new_value, target->getPointerOperand());
+            return new_value;
+        }
+        case UnaryOpCode::kSelfDecreasing: {    
+            llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(value);
+            assert(target);
+            llvm::Value* new_value;
+            if (ctype->GetKind() == CType::TypeKind::kPointer) {
+                new_value = ir_builder_.CreateInBoundsGEP(ctype->Accept(this), value, { ir_builder_.getInt32(-1) });
+            } else {
+                new_value = ir_builder_.CreateNSWSub(value, ir_builder_.getInt32(1));
+            }
+            ir_builder_.CreateStore(new_value, target->getPointerOperand());
+            return new_value;
+        }
+        case UnaryOpCode::kDereference: {
+            auto pointer_ctype = llvm::dyn_cast<CPointerType>(ctype.get());
+            assert(pointer_ctype);
+            ctype = pointer_ctype->GetBaseType();
+            return ir_builder_.CreateLoad(ctype->Accept(this), value);
+        }
+        case UnaryOpCode::kAddress: {
+            return llvm::dyn_cast<llvm::LoadInst>(value)->getPointerOperand();
+        }
+        case UnaryOpCode::kLogicalNot: {
+            auto value_is_true = ir_builder_.CreateICmpNE(value, ir_builder_.getInt32(0));
+            return ir_builder_.CreateZExt(ir_builder_.CreateNot(value_is_true), ir_builder_.getInt32Ty());
+        }
+        case UnaryOpCode::kBitwiseNot: {
+            return ir_builder_.CreateNot(value);
+        }
+    }
 
     return nullptr;
 }
@@ -295,10 +362,20 @@ llvm::Value *CodeGen::VisitBinaryExpr(BinaryExpr* binary_expr) {
             auto val = ir_builder_.CreateICmpSGE(left, right);
             return ir_builder_.CreateIntCast(val, ir_builder_.getInt32Ty(), true);
         }
-        case BinaryOpCode::kAdd:
+        case BinaryOpCode::kAdd: {
+            auto _ctype = left->getType();
+            if (_ctype->isPointerTy()) {
+                return ir_builder_.CreateInBoundsGEP(_ctype, left, { right });
+            }
             return ir_builder_.CreateNSWAdd(left, right);
-        case BinaryOpCode::kSub:
+        }
+        case BinaryOpCode::kSub: {
+            auto _ctype = left->getType();
+            if (_ctype->isPointerTy()) {
+                return ir_builder_.CreateInBoundsGEP(_ctype, left, { ir_builder_.CreateNeg(right) });
+            }
             return ir_builder_.CreateNSWSub(left, right);
+        }
         case BinaryOpCode::kMul:
             return ir_builder_.CreateNSWMul(left, right);
         case BinaryOpCode::kDiv:
@@ -324,15 +401,30 @@ llvm::Value *CodeGen::VisitBinaryExpr(BinaryExpr* binary_expr) {
         case BinaryOpCode::kAddAssign: {
             llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(left);
             assert(target);
-            // a += 3  => a = a + 3
-            auto new_value = ir_builder_.CreateNSWAdd(left, right);
+
+            llvm::Value* new_value = nullptr;
+            auto _ctype = left->getType();
+            if (_ctype->isPointerTy()) {
+                new_value = ir_builder_.CreateInBoundsGEP(_ctype, left, { right });
+            } else {
+                new_value = ir_builder_.CreateNSWAdd(left, right);
+            }
+
             ir_builder_.CreateStore(new_value, target->getPointerOperand());
             return new_value;
         }
         case BinaryOpCode::kSubAssign: {
             llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(left);
             assert(target);
-            auto new_value = ir_builder_.CreateNSWSub(left, right);
+
+            llvm::Value* new_value = nullptr;
+            auto _ctype = left->getType();
+            if (_ctype->isPointerTy()) {
+                new_value = ir_builder_.CreateInBoundsGEP(_ctype, left, { ir_builder_.CreateNot(right) });
+            } else {
+                new_value = ir_builder_.CreateNSWSub(left, right);
+            }
+
             ir_builder_.CreateStore(new_value, target->getPointerOperand());
             return new_value;
         }
@@ -466,9 +558,7 @@ llvm::Value *CodeGen::VisitPostIncExpr(PostIncExpr* expr) {
     llvm::Value* new_value;
     auto ctype = expr->sub_node_->GetCType();
     if (ctype->GetKind() == CType::TypeKind::kPointer) {
-        auto pointer_type = llvm::dyn_cast<CPointerType>(ctype.get());
-        auto element_type = pointer_type->GetBaseType();
-        new_value = ir_builder_.CreateNUWAdd(value, ir_builder_.getInt64(element_type->GetSize()));
+        new_value = ir_builder_.CreateInBoundsGEP(ctype->Accept(this), value, { ir_builder_.getInt32(1) });
     } else {
         new_value = ir_builder_.CreateNSWAdd(value, ir_builder_.getInt32(1));
     }
@@ -485,9 +575,7 @@ llvm::Value *CodeGen::VisitPostDecExpr(PostDecExpr* expr) {
     llvm::Value* new_value;
     auto ctype = expr->sub_node_->GetCType();
     if (ctype->GetKind() == CType::TypeKind::kPointer) {
-        auto pointer_type = llvm::dyn_cast<CPointerType>(ctype.get());
-        auto element_type = pointer_type->GetBaseType();
-        new_value = ir_builder_.CreateNUWSub(value, ir_builder_.getInt64(element_type->GetSize()));
+        new_value = ir_builder_.CreateInBoundsGEP(ctype->Accept(this), value, { ir_builder_.getInt32(-1) });
     } else {
         new_value = ir_builder_.CreateNSWSub(value, ir_builder_.getInt32(1));
     }

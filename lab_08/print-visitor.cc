@@ -256,11 +256,11 @@ llvm::Value *PrintVisitor::VisitVariableDecl(VariableDecl* decl) {
 
 llvm::Value *PrintVisitor::VisitSizeofExpr(SizeofExpr* expr) {
     *out_ << "sizeof ";
-    if (expr->ctype_) {
+    if (expr->sub_ctype_) {
         *out_ << "(";
-        expr->ctype_->Accept(this);
+        expr->sub_ctype_->Accept(this);
         *out_ << ")";
-    } 
+    }
     else if (expr->sub_node_) {
         expr->sub_node_->Accept(this);
     }

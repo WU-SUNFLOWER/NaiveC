@@ -1,60 +1,39 @@
-# Lab_07 Introduce Comment & Logical Operator & Bitwise Operator into Our Compiler
+# Lab_08 Let's Support More Operators And Pointer Type.
 
 ## Tasks
 
 ### Task 1
 
-The first goal of this lab is to let our compiler to support **Comment**.
+Support commonly used **unary, binary, and ternary expressions** in C language.
 
-After we finish this task, the following code can be processed by our compiler.
-
-```C
-// SOMETHING
-int e = 0;
-for (int i = 0; i < 100; i = i + 1) {
-    if (i == 10) {
-        continue;
-    }
-    /*
-        SOMETHING
-        SOMETHING
-        SOMETHING
-    */
-    for (int j = 0; j < 10; j = j + 1) {
-        e = e + i;
-        // SOMETHING               
-        if (j >= 8) {
-            break;  // SOMETHING
-        }
-    }
-}
-e;/*Hello*/
-```
+Like `i++`, `i--`, `++i`, `--i`, `i += 3`, `i *= 3`, `a ? b : c`, `a, b, c`, `sizeof(a)`, ...
 
 ### Task 2
 
-The second goal of this lab is to enable our compiler to support **Logical Operator**, which including `&&` and `||`.
+Introduce **the pointer type** into our compiler.
 
-### Task3
+This task can be spilt into the following steps:
+- Define **the corresponding class** of C language pointer type in our compiler.
+- Enable our Lexer and Parser to process **variable declaration with pointer type**, like `int** p` or `int *q`.
+- Enable our Lexer and Parser to process **the address operator** and **the dereference operator**, like `&a` or `*a`.
+    - **NOTE:** 
+    - We can only get the address of a lvalue with the address operator in C language.
+    - Which means we have to add an additional field to our AST node, to mark up the output result of an AST node is lvalue or rvalue. 
+    - So that our **semantic checker** can check whether an address acquisition operation is legal.
+- Enable our code generator to generate the correct LLVM IR for **the address operator** and **the dereference operator**.
+    - **NOTE:**
+    - Although we have implement some add/sub operators, including `+`, `-`, `+=` and `-=`, we shouldn't forget that the add/sub operation for pointer is different with normal variable. 
+    - For example, Assuming `p` is an int pointer, then `p+1` means adding a four-byte offset to the address `p`.
 
-The final goal of this lab is to let our compiler to **Bitwise Operator**, which including `|`, `^`, `&`, `<<`, `>>` and `%`.
+When all the works are done, the program like this can be processed by our compiler:
 
 ```C
 int a = 10;
-int b = 20;
-int c = 10;
-int d = 5;
-int e = 2;
-int f = 3;
-
-int x = a != 10 && a == 10 || b != 20 && c <= 10 || c < 10  && b == 20 ;
-int y = a == 10 && b == 20 && c <= 10 || a != 10 || b != 20 || c < 10;
-
-d = d << 2;
-d = d >> 5;
-d = d & e;
-d = d ^ f;
-d = d % 10;
-d = d | b;
-d = d + x + y;
+int *p = &a;
+*p++;
+++*p;
+p++;
+p--
+++p;
+--p;
 ```
