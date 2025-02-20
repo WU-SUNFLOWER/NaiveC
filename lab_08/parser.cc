@@ -558,7 +558,7 @@ std::shared_ptr<AstNode> Parser::ParseLogOrExpr() {
         Advance();
 
         auto right_expr = ParseLogAndExpr();
-        left_expr = sema_.SemaBinaryExprNode(left_expr, right_expr, BinaryOpCode::kLogicOr);
+        left_expr = sema_.SemaBinaryExprNode(left_expr, right_expr, BinaryOpCode::kLogicalOr);
     }
     return left_expr;
 }
@@ -569,7 +569,7 @@ std::shared_ptr<AstNode> Parser::ParseLogAndExpr() {
         Advance();
 
         auto right_expr = ParseBitOrExpr();
-        auto binary_expr = sema_.SemaBinaryExprNode(left_expr, right_expr, BinaryOpCode::kLogicAnd);
+        auto binary_expr = sema_.SemaBinaryExprNode(left_expr, right_expr, BinaryOpCode::kLogicalAnd);
 
         left_expr = std::move(binary_expr);
     }

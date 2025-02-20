@@ -309,8 +309,8 @@ enum class BinaryOpCode {
     kDiv,
     kMod,
 
-    kLogicOr,
-    kLogicAnd,
+    kLogicalOr,
+    kLogicalAnd,
 
     kBitwiseOr,
     kBitwiseAnd,

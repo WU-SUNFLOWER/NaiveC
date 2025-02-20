@@ -181,16 +181,27 @@ llvm::Value *CodeGen::VisitContinueStmt(ContinueStmt* stmt) {
     return nullptr;
 }
 
-llvm::Value *CodeGen::VisitUnaryExpr(UnaryExpr *) {
+llvm::Value *CodeGen::VisitSizeofExpr(SizeofExpr* expr) {
+    if (expr->ctype_) {
+        return ir_builder_.getInt64(expr->ctype_->GetSize());
+    }
+    if (expr->sub_node_) {
+        return ir_builder_.getInt64(expr->sub_node_->GetCType()->GetSize());
+    }
+    assert(0);
     return nullptr;
 }
 
-llvm::Value *CodeGen::VisitBinaryExpr(BinaryExpr *binary_expr)
-{
+llvm::Value *CodeGen::VisitUnaryExpr(UnaryExpr* expr) {
+
+    return nullptr;
+}
+
+llvm::Value *CodeGen::VisitBinaryExpr(BinaryExpr* binary_expr) {
     auto op_code = binary_expr->op_;
     switch (op_code) {
         // left && right
-        case BinaryOpCode::kLogicAnd: {
+        case BinaryOpCode::kLogicalAnd: {
             auto left = binary_expr->left_->Accept(this);
             auto is_left_true = ir_builder_.CreateICmpNE(left, ir_builder_.getInt32(0));
 
@@ -224,7 +235,7 @@ llvm::Value *CodeGen::VisitBinaryExpr(BinaryExpr *binary_expr)
             return phi;
         }
         // left || right
-        case BinaryOpCode::kLogicOr: {
+        case BinaryOpCode::kLogicalOr: {
             auto left = binary_expr->left_->Accept(this);
             auto is_left_true = ir_builder_.CreateICmpNE(left, ir_builder_.getInt32(0));
 
@@ -294,16 +305,96 @@ llvm::Value *CodeGen::VisitBinaryExpr(BinaryExpr *binary_expr)
             return ir_builder_.CreateSDiv(left, right);
         case BinaryOpCode::kMod:
             return ir_builder_.CreateSRem(left, right);
-        case BinaryOpCode::kBitwiseAnd:
-            return ir_builder_.CreateAnd(left, right);
         case BinaryOpCode::kBitwiseOr:
             return ir_builder_.CreateOr(left, right);
+        case BinaryOpCode::kBitwiseAnd:
+            return ir_builder_.CreateAnd(left, right);
         case BinaryOpCode::kBitwiseXor:
             return ir_builder_.CreateXor(left, right);
         case BinaryOpCode::kLeftShift:
             return ir_builder_.CreateShl(left, right);
         case BinaryOpCode::kRightShift:
             return ir_builder_.CreateAShr(left, right);
+        case BinaryOpCode::kAssign: {
+            llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(left);
+            assert(target);
+            ir_builder_.CreateStore(right, target->getPointerOperand());
+            return right;
+        }
+        case BinaryOpCode::kAddAssign: {
+            llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(left);
+            assert(target);
+            // a += 3  => a = a + 3
+            auto new_value = ir_builder_.CreateNSWAdd(left, right);
+            ir_builder_.CreateStore(new_value, target->getPointerOperand());
+            return new_value;
+        }
+        case BinaryOpCode::kSubAssign: {
+            llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(left);
+            assert(target);
+            auto new_value = ir_builder_.CreateNSWSub(left, right);
+            ir_builder_.CreateStore(new_value, target->getPointerOperand());
+            return new_value;
+        }
+        case BinaryOpCode::kMulAssign: {
+            llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(left);
+            assert(target);
+            auto new_value = ir_builder_.CreateNSWMul(left, right);
+            ir_builder_.CreateStore(new_value, target->getPointerOperand());
+            return new_value;
+        }
+        case BinaryOpCode::kDivAssign: {
+            llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(left);
+            assert(target);
+            auto new_value = ir_builder_.CreateSDiv(left, right);
+            ir_builder_.CreateStore(new_value, target->getPointerOperand());
+            return new_value;
+        }
+        case BinaryOpCode::kModAssign: {
+            llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(left);
+            assert(target);
+            auto new_value = ir_builder_.CreateSRem(left, right);
+            ir_builder_.CreateStore(new_value, target->getPointerOperand());
+            return new_value;
+        }
+        case BinaryOpCode::kLeftShiftAssign: {
+            llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(left);
+            assert(target);
+            auto new_value = ir_builder_.CreateShl(left, right);
+            ir_builder_.CreateStore(new_value, target->getPointerOperand());
+            return new_value;
+        }
+        case BinaryOpCode::kRightShiftAssign: {
+            llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(left);
+            assert(target);
+            auto new_value = ir_builder_.CreateAShr(left, right);
+            ir_builder_.CreateStore(new_value, target->getPointerOperand());
+            return new_value;
+        }
+        case BinaryOpCode::kBitwiseAndAssign: {
+            llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(left);
+            assert(target);
+            auto new_value = ir_builder_.CreateAnd(left, right);
+            ir_builder_.CreateStore(new_value, target->getPointerOperand());
+            return new_value;
+        }
+        case BinaryOpCode::kBitwiseOrAssign: {
+            llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(left);
+            assert(target);
+            auto new_value = ir_builder_.CreateOr(left, right);
+            ir_builder_.CreateStore(new_value, target->getPointerOperand());
+            return new_value;
+        }
+        case BinaryOpCode::kBitwiseXorAssign: {
+            llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(left);
+            assert(target);
+            auto new_value = ir_builder_.CreateXor(left, right);
+            ir_builder_.CreateStore(new_value, target->getPointerOperand());
+            return new_value;
+        }
+        case BinaryOpCode::kComma: {
+            return right;
+        }
         default:
             llvm::errs() << "Unknown opcode: " 
                          << static_cast<int>(binary_expr->op_) 
@@ -313,8 +404,31 @@ llvm::Value *CodeGen::VisitBinaryExpr(BinaryExpr *binary_expr)
     return nullptr;
 }
 
-llvm::Value *CodeGen::VisitTernaryExpr(TernaryExpr *) {
-    return nullptr;
+llvm::Value *CodeGen::VisitTernaryExpr(TernaryExpr* expr) {
+    auto then_block = llvm::BasicBlock::Create(context_, "ternary.then", GetCurrentFunc());
+    auto els_block = llvm::BasicBlock::Create(context_, "ternary.else", GetCurrentFunc());
+    auto merge_block = llvm::BasicBlock::Create(context_, "ternary.merge", GetCurrentFunc());
+
+    auto cond_val = expr->cond_->Accept(this);
+    auto is_cond_true = ir_builder_.CreateICmpNE(cond_val, ir_builder_.getInt32(0));
+    ir_builder_.CreateCondBr(is_cond_true, then_block, els_block);
+
+    ir_builder_.SetInsertPoint(then_block);
+    auto then_value = expr->then_->Accept(this);
+    then_block = ir_builder_.GetInsertBlock();
+    ir_builder_.CreateBr(merge_block);
+
+    ir_builder_.SetInsertPoint(els_block);
+    auto els_value = expr->els_->Accept(this);
+    els_block = ir_builder_.GetInsertBlock();
+    ir_builder_.CreateBr(merge_block);
+
+    ir_builder_.SetInsertPoint(merge_block);
+    auto phi = ir_builder_.CreatePHI(expr->GetCType()->Accept(this), 2);
+    phi->addIncoming(then_value, then_block);
+    phi->addIncoming(els_value, els_block);
+
+    return phi;
 }
 
 llvm::Value* CodeGen::VisitVariableAccessExpr(VariableAccessExpr* access_node) {
@@ -330,58 +444,74 @@ llvm::Value* CodeGen::VisitVariableAccessExpr(VariableAccessExpr* access_node) {
 }
 
 llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
-    llvm::Type* ir_type = nullptr;
+    llvm::Type* ir_type = decl_node->GetCType()->Accept(this);
     const llvm::StringRef& variable_name = decl_node->GetVariableName();
-    if (decl_node->GetCType() == CType::kIntType) {
-        ir_type = ir_builder_.getInt32Ty();
-    }
-    else {
-        llvm::errs() << "Try to delcare variable with unknown type: " << variable_name;
-        return nullptr;
-    }
 
-    llvm::Value* value = ir_builder_.CreateAlloca(ir_type, nullptr, variable_name);
-    variable_map_.insert({ variable_name, { value, ir_type } });
+    llvm::Value* variable_addr = ir_builder_.CreateAlloca(ir_type, nullptr, variable_name);
+    variable_map_.insert({ variable_name, { variable_addr, ir_type } });
 
     if (decl_node->init_node_) {
-        decl_node->init_node_->Accept(this);
+        auto init_val = decl_node->init_node_->Accept(this);
+        ir_builder_.CreateStore(init_val, variable_addr);
     }
+
+    return variable_addr;
+}
+
+llvm::Value *CodeGen::VisitPostIncExpr(PostIncExpr* expr) {
+    llvm::Value* value = expr->sub_node_->Accept(this);
+    llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(value);
+    assert(target);
+
+    llvm::Value* new_value;
+    auto ctype = expr->sub_node_->GetCType();
+    if (ctype->GetKind() == CType::TypeKind::kPointer) {
+        auto pointer_type = llvm::dyn_cast<CPointerType>(ctype.get());
+        auto element_type = pointer_type->GetBaseType();
+        new_value = ir_builder_.CreateNUWAdd(value, ir_builder_.getInt64(element_type->GetSize()));
+    } else {
+        new_value = ir_builder_.CreateNSWAdd(value, ir_builder_.getInt32(1));
+    }
+    ir_builder_.CreateStore(new_value, target->getPointerOperand());
 
     return value;
 }
 
-/*
-llvm::Value* CodeGen::VisitAssignExpr(AssignExpr* assign_node) {
-    auto access_node = assign_node->GetLeftChild();
-
-    assert(llvm::isa<VariableAccessExpr>(access_node.get()));
-
-    auto variable_name = static_cast<VariableAccessExpr*>(access_node.get())->GetVariableName();
-    auto& variable_info = variable_map_[variable_name];
-    llvm::Value* variable_addr = variable_info.first;
-    llvm::Type* variable_ir_type = variable_info.second;
-
-    // Compute the right node at first.
-    auto right_node = assign_node->GetRightChild();
-    llvm::Value* right_value = right_node->Accept(this);
-
-    // Generate store ir instruction.
-    ir_builder_.CreateStore(right_value, variable_addr);
-
-    // Return our target variable as a lvalue.
-    // auto ret = ir_builder_.CreateLoad(variable_ir_type, variable_addr, variable_name);
-    return ir_builder_.CreateLoad(variable_ir_type, variable_addr, variable_name);
-}
-*/
-
-llvm::Value *CodeGen::VisitPostIncExpr(PostIncExpr* expr) {
-    return nullptr;
-}
-
 llvm::Value *CodeGen::VisitPostDecExpr(PostDecExpr* expr) {
-    return nullptr;
+    llvm::Value* value = expr->sub_node_->Accept(this);
+    llvm::LoadInst* target = llvm::dyn_cast<llvm::LoadInst>(value);
+    assert(target);
+
+    llvm::Value* new_value;
+    auto ctype = expr->sub_node_->GetCType();
+    if (ctype->GetKind() == CType::TypeKind::kPointer) {
+        auto pointer_type = llvm::dyn_cast<CPointerType>(ctype.get());
+        auto element_type = pointer_type->GetBaseType();
+        new_value = ir_builder_.CreateNUWSub(value, ir_builder_.getInt64(element_type->GetSize()));
+    } else {
+        new_value = ir_builder_.CreateNSWSub(value, ir_builder_.getInt32(1));
+    }
+    ir_builder_.CreateStore(new_value, target->getPointerOperand());
+
+    return value;
 }
+
 
 llvm::Value* CodeGen::VisitNumberExpr(NumberExpr *factor_expr) {
     return ir_builder_.getInt32(factor_expr->GetNumber());
+}
+
+llvm::Type *CodeGen::VisitPrimaryType(CPrimaryType* ctype) {
+    if (ctype->GetKind() == CType::TypeKind::kInt) {
+        return ir_builder_.getInt32Ty();
+    }
+    else {
+        assert(0);
+    }
+    return nullptr;
+}
+
+llvm::Type *CodeGen::VisitPointerType(CPointerType* ctype) {
+    llvm::Type* base_type = ctype->GetBaseType()->Accept(this);
+    return llvm::PointerType::getUnqual(base_type);
 }

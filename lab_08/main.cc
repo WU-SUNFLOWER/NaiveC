@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
 
     PrintVisitor visitor(program);
     
-    //CodeGen generator(program);    
+    CodeGen generator(program);    
 
     return 0;
 }

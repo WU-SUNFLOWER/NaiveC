@@ -46,6 +46,10 @@ class CType {
         return kind_;
     }
 
+    size_t GetSize() const {
+        return size_;
+    }
+
     static std::shared_ptr<CType> const kIntType;
 };
 

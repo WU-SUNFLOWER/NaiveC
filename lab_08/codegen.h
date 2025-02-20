@@ -14,8 +14,9 @@
 
 #include "ast.h"
 #include "parser.h"
+#include "type.h"
 
-class CodeGen : public Visitor {
+class CodeGen : public Visitor, public TypeVisitor {
  private:
     llvm::LLVMContext context_;
     llvm::IRBuilder<> ir_builder_ { context_ };
@@ -55,9 +56,13 @@ class CodeGen : public Visitor {
     llvm::Value* VisitNumberExpr(NumberExpr*) override;
     llvm::Value* VisitVariableAccessExpr(VariableAccessExpr*) override;
     llvm::Value* VisitVariableDecl(VariableDecl*) override;
+    llvm::Value* VisitSizeofExpr(SizeofExpr*) override;
 
     llvm::Value* VisitPostIncExpr(PostIncExpr*) override;
     llvm::Value* VisitPostDecExpr(PostDecExpr*) override;
+
+    llvm::Type* VisitPrimaryType(CPrimaryType*) override;
+    llvm::Type* VisitPointerType(CPointerType*) override;
 };
 
 #endif  // CODEGEN_H_

@@ -159,10 +159,10 @@ llvm::Value *PrintVisitor::VisitBinaryExpr(BinaryExpr *binary_expr) {
         case BinaryOpCode::kMod:
             *out_ <<"%";
             break;
-        case BinaryOpCode::kLogicOr:
+        case BinaryOpCode::kLogicalOr:
             *out_ <<"||";
             break;
-        case BinaryOpCode::kLogicAnd:
+        case BinaryOpCode::kLogicalAnd:
             *out_ <<"&&";
             break;
         case BinaryOpCode::kBitwiseOr:
