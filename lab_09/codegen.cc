@@ -548,7 +548,7 @@ llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
             auto init_value_struct = decl_node->init_values_[0];
             auto init_value = init_value_struct->init_node->Accept(this);
             ir_builder_.CreateStore(init_value, variable_addr);            
-        } 
+        }
         else if (llvm::ArrayType* arr_type = llvm::dyn_cast<llvm::ArrayType>(ir_type)) {
             for (const auto& init_value_struct : decl_node->init_values_) {
                 // Create llvm-style index list.
@@ -646,6 +646,5 @@ llvm::Type *CodeGen::VisitPointerType(CPointerType* ctype) {
 
 llvm::Type *CodeGen::VisitArrayType(CArrayType* ctype) {
     llvm::Type* element_type = ctype->GetElementType()->Accept(this);
-
     return llvm::ArrayType::get(element_type, ctype->GetElementCount());
 }

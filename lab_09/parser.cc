@@ -89,9 +89,9 @@ std::shared_ptr<AstNode> Parser::ParseDeclarator(std::shared_ptr<CType> base_typ
 std::shared_ptr<AstNode> Parser::ParseDirectDeclarator(std::shared_ptr<CType> base_type) {
     std::shared_ptr<AstNode> variable_decl_node = nullptr;
     
-    // Create the declarator node.
+    // 1. Create the declarator node.
     switch (token_.GetType()) {
-        // Process the common situation, e.g. `int x, y=100;` or `int ar[3] = { 1, 2, 3 }`.
+        // 1.1 Process the common situation, e.g. `int x, y=100;` or `int ar[3] = { 1, 2, 3 }`.
         case TokenType::kIdentifier: {
             Token identifier_tok = token_;
             Consume(TokenType::kIdentifier);
@@ -101,7 +101,7 @@ std::shared_ptr<AstNode> Parser::ParseDirectDeclarator(std::shared_ptr<CType> ba
             variable_decl_node = sema_.SemaVariableDeclNode(identifier_tok, base_type);
             break;
         }
-        // Process the special situation, e.g. `int (*p)[3][4] = &a;`.
+        // 1.2 Process the special situation, e.g. `int (*p)[3][4] = &a;`.
         case TokenType::kLParent: {
             // At first time, let's look forward.
             Token history_tok = token_;
@@ -140,7 +140,7 @@ std::shared_ptr<AstNode> Parser::ParseDirectDeclarator(std::shared_ptr<CType> ba
         }
     }
 
-    // Create tne initializer node.
+    // 2. Create tne initializer node.
     if (token_.GetType() == TokenType::kEqual) {
         Advance();
         VariableDecl* raw_decl_node = llvm::dyn_cast<VariableDecl>(variable_decl_node.get());
@@ -201,15 +201,17 @@ bool Parser::ParseInitializer(
                 int element_count = array_type->GetElementCount();
 
                 for (int i = 0; i < element_count; ++i) {
-                    if (0 < i && token_.GetType() == TokenType::kComma) {
-                        Advance();
-                    }
-                    
                     index_list.push_back(i);
                     bool end = ParseInitializer(init_values, array_type->GetElementType(), index_list, true);
                     index_list.pop_back();
 
-                    if (end) break;
+                    if (end) {
+                        break;
+                    }
+
+                    if (i != element_count - 1 && token_.GetType() != TokenType::kRBrace) {
+                        Consume(TokenType::kComma);
+                    }
                 }
             }
         }
@@ -374,29 +376,6 @@ std::shared_ptr<AstNode> Parser::ParseExprStmt() {
 }
 
 std::shared_ptr<AstNode> Parser::ParseExpr() {
-    /*
-    bool is_assign_expr = false;
-    bool is_logic_expr = false;
-
-    lexer_.SaveState();
-    {
-        if (token_.GetType() == TokenType::kIdentifier) {
-            Token tmp;
-            lexer_.GetNextToken(tmp);
-            if (tmp.GetType() == TokenType::kEqual) {
-                is_assign_expr = true;
-            }
-        }
-    }
-    lexer_.RestoreState();
-
-    // Process "=" assignment expression.
-    if (is_assign_expr) {
-        return ParseAssignExpr();
-    }
-
-    return ParseLogOrExpr();    
-    */
     auto left = ParseAssignExpr();
     while (token_.GetType() == TokenType::kComma) {
         Consume(TokenType::kComma);
@@ -407,16 +386,6 @@ std::shared_ptr<AstNode> Parser::ParseExpr() {
 }
 
 std::shared_ptr<AstNode> Parser::ParseAssignExpr() {
-    /*
-    auto access_node = sema_.SemaVariableAccessNode(token_);
-    Consume(TokenType::kIdentifier);
-
-    Token equal_op_token = token_;
-    Consume(TokenType::kEqual);
-
-    auto right_node = ParseExpr();
-    return sema_.SemaAssignExprNode(equal_op_token, access_node, right_node);    
-    */
     auto left = ParseConditionalExpr();
     if (!CurrentTokenIsAssignOperator()) {
         return left;
