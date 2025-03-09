@@ -1,0 +1,10 @@
+{
+    struct A {
+        int x, y;
+        int* p;
+    };
+
+    struct A a;
+
+    1;
+}

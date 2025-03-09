@@ -60,7 +60,7 @@ llvm::Value* CodeGen::VisitProgram(Program *prog) {
 
     llvm::verifyFunction(*func, &llvm::outs());
 
-    if (llvm::verifyModule(*module_, &llvm::outs())) {
+    if (!llvm::verifyModule(*module_, &llvm::outs())) {
         module_->print(llvm::outs(), nullptr);
     }
     
@@ -639,13 +639,38 @@ llvm::Type *CodeGen::VisitPrimaryType(CPrimaryType* ctype) {
     return nullptr;
 }
 
-llvm::Type *CodeGen::VisitPointerType(CPointerType* ctype) {
+llvm::Type* CodeGen::VisitPointerType(CPointerType* ctype) {
     llvm::Type* base_type = ctype->GetBaseType()->Accept(this);
     return llvm::PointerType::getUnqual(base_type);
 }
 
-llvm::Type *CodeGen::VisitArrayType(CArrayType* ctype) {
+llvm::Type* CodeGen::VisitArrayType(CArrayType* ctype) {
     llvm::Type* element_type = ctype->GetElementType()->Accept(this);
     return llvm::ArrayType::get(element_type, ctype->GetElementCount());
 }
 
+llvm::Type* CodeGen::VisitRecordType(CRecordType* ctype) {
+    auto struct_type = llvm::StructType::get(context_);
+    struct_type->setName(ctype->GetName());
+
+    CType::TagKind tag_kind = ctype->GetTagKind();
+    switch (tag_kind) {
+        case CType::TagKind::kStruct: {
+            llvm::SmallVector<llvm::Type*> member_type_vec;
+            for (const auto& member : ctype->GetMembers()) {
+                member_type_vec.push_back(member.type->Accept(this));
+            }
+            struct_type->setBody(member_type_vec);
+            break;
+        }
+        case CType::TagKind::kUnion: {
+            // TO DO
+            break;
+        }
+        default: {
+            assert(0);
+        }
+    }
+
+    return struct_type;
+}
