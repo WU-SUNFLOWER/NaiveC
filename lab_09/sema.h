@@ -46,9 +46,20 @@ class Sema {
                                     std::shared_ptr<AstNode> sub, 
                                     std::shared_ptr<CType> ctype);
 
-    std::shared_ptr<AstNode> SemaPostIncExpr(std::shared_ptr<AstNode> sub, Token& token);
+    std::shared_ptr<AstNode> SemaPostIncExprNode(std::shared_ptr<AstNode> sub, Token& token);
 
-    std::shared_ptr<AstNode> SemaPostDecExpr(std::shared_ptr<AstNode> sub, Token& token);
+    std::shared_ptr<AstNode> SemaPostDecExprNode(std::shared_ptr<AstNode> sub, Token& token);
+
+    std::shared_ptr<VariableDecl::InitValue> SemaDeclInitValueStruct(
+                                                   std::shared_ptr<CType> decl_type,
+                                                   std::shared_ptr<AstNode> init_node,
+                                                   std::vector<int>& index_list,
+                                                   Token& token);
+
+    std::shared_ptr<AstNode> SemaPostSubscriptExprNode(
+                                       std::shared_ptr<AstNode> sub_node,
+                                       std::shared_ptr<AstNode> index_node,
+                                       Token& token);
 
     std::shared_ptr<AstNode> SemaNumberExprNode(Token& token, std::shared_ptr<CType> ctype);
 

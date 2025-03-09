@@ -173,7 +173,7 @@ std::shared_ptr<AstNode> Sema::SemaSizeofExprNode(
     return node;
 }
 
-std::shared_ptr<AstNode> Sema::SemaPostIncExpr(std::shared_ptr<AstNode> sub, Token& token) {
+std::shared_ptr<AstNode> Sema::SemaPostIncExprNode(std::shared_ptr<AstNode> sub, Token& token) {
     if (!sub->IsLValue()) {
         diag_engine_.Report(
             llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
@@ -186,7 +186,7 @@ std::shared_ptr<AstNode> Sema::SemaPostIncExpr(std::shared_ptr<AstNode> sub, Tok
     return node;
 }
 
-std::shared_ptr<AstNode> Sema::SemaPostDecExpr(std::shared_ptr<AstNode> sub, Token& token) {
+std::shared_ptr<AstNode> Sema::SemaPostDecExprNode(std::shared_ptr<AstNode> sub, Token& token) {
     if (!sub->IsLValue()) {
         diag_engine_.Report(
             llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
@@ -196,6 +196,63 @@ std::shared_ptr<AstNode> Sema::SemaPostDecExpr(std::shared_ptr<AstNode> sub, Tok
     auto node = std::make_shared<PostDecExpr>();
     node->sub_node_ = sub;
     node->SetCType(sub->GetCType());
+    return node;
+}
+
+std::shared_ptr<VariableDecl::InitValue> Sema::SemaDeclInitValueStruct(
+    std::shared_ptr<CType> decl_type, 
+    std::shared_ptr<AstNode> init_node, 
+    std::vector<int> &index_list,
+    Token& token)
+{
+    if (decl_type->GetKind() != init_node->GetCType()->GetKind()) {
+        diag_engine_.Report(
+            llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
+            Diag::kErrMiss,
+            "same type");
+        return nullptr;
+    }
+
+    auto init_value_struct = std::make_shared<VariableDecl::InitValue>();
+    init_value_struct->decl_type = decl_type;
+    init_value_struct->init_node = init_node;
+    init_value_struct->index_list = index_list;
+    return init_value_struct;
+}
+
+// `ar[123]` means `*(ar + 123 * element_size)`
+std::shared_ptr<AstNode> Sema::SemaPostSubscriptExprNode(
+    std::shared_ptr<AstNode> sub_node, 
+    std::shared_ptr<AstNode> index_node,
+    Token& token)
+{
+    auto sub_type = sub_node->GetCType()->GetKind();
+    std::shared_ptr<CType> element_type = nullptr;
+
+    switch (sub_type) {
+        case CType::TypeKind::kArray: {
+            CArrayType* sub_node_type = llvm::dyn_cast<CArrayType>(sub_node->GetCType().get());
+            element_type = sub_node_type->GetElementType();
+            break;
+        }
+        case CType::TypeKind::kPointer: {
+            CPointerType* sub_node_type = llvm::dyn_cast<CPointerType>(sub_node->GetCType().get());
+            element_type = sub_node_type->GetBaseType();
+            break;
+        }
+        default: {
+            diag_engine_.Report(llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
+                                Diag::kErrExpectedType,
+                                "array or pointer");
+            break;
+        }
+    }
+
+    auto node = std::make_shared<PostSubscriptExpr>();
+    node->sub_node_ = sub_node;
+    node->index_node_ = index_node;
+    node->SetCType(element_type);
+
     return node;
 }
 

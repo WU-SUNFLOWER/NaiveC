@@ -20,8 +20,9 @@ NAIVEC_DIAG(ErrUndefined, Error, "undefined symbol '{0}'")
 NAIVEC_DIAG(ErrLValue, Error, "lvalue is required on the assign operation left side")
 NAIVEC_DIAG(ErrType, Error, "typename expected")
 NAIVEC_DIAG(ErrSameType, Error, "expected same type")
-NAIVEC_DIAG(ErrExpectedType, Error, "expected {0}")
+NAIVEC_DIAG(ErrExpectedType, Error, "expected '{0}'")
 NAIVEC_DIAG(ErrExpectedLValue, Error, "expected lvalue")
 NAIVEC_DIAG(ErrExpectedDeclare, Error, "expected {0}")
+NAIVEC_DIAG(ErrMiss, Error, "miss '{0}'")
 
 #undef NAIVEC_DIAG

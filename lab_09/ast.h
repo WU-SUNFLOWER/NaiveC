@@ -35,6 +35,8 @@ class SizeofExpr;
 class PostIncExpr;
 class PostDecExpr;
 
+class PostSubscriptExpr;
+
 class Visitor {
  public:
     virtual ~Visitor() {}
@@ -59,6 +61,8 @@ class Visitor {
 
     virtual llvm::Value* VisitPostIncExpr(PostIncExpr*) = 0;
     virtual llvm::Value* VisitPostDecExpr(PostDecExpr*) = 0;
+
+    virtual llvm::Value* VisitPostSubscript(PostSubscriptExpr*) = 0;
 };
 
 class AstNode {
@@ -82,6 +86,8 @@ class AstNode {
 
         kPostIncExpr,
         kPostDecExpr,
+
+        kPostSubscriptExpr,
     };
 
  private:
@@ -227,7 +233,26 @@ class ContinueStmt : public AstNode {
 
 class VariableDecl : public AstNode {
  public:
-    std::shared_ptr<AstNode> init_node_;
+    struct InitValue {
+        std::shared_ptr<CType> decl_type;
+        std::shared_ptr<AstNode> init_node;
+        /*
+            For example, 
+            `int ar[][][] = {
+                {
+                    {1, 2},
+                    {3, 4}
+                },
+                {
+                    {5, 6}
+                }
+            };`
+            Then, the `index_list` of element `6` is `[1, 0, 1]`.
+        */
+        std::vector<int> index_list;
+    };
+
+    std::vector<std::shared_ptr<InitValue>> init_values_;
 
     VariableDecl() : AstNode(AstNodeKind::kVariableDecl) {}
 
@@ -439,6 +464,23 @@ class PostDecExpr : public AstNode {
     // Provide support for LLVM RTTI
     static bool classof(const AstNode* node) {
         return node->GetNodeKind() == AstNodeKind::kPostDecExpr;
+    }
+};
+
+class PostSubscriptExpr : public AstNode {
+ public:
+    std::shared_ptr<AstNode> sub_node_;
+    std::shared_ptr<AstNode> index_node_;
+
+    PostSubscriptExpr() : AstNode(AstNodeKind::kPostSubscriptExpr) {}
+
+    llvm::Value* Accept(Visitor* vis) override {
+        return vis->VisitPostSubscript(this);
+    }
+
+    // Provide support for LLVM RTTI
+    static bool classof(const AstNode* node) {
+        return node->GetNodeKind() == AstNodeKind::kPostSubscriptExpr;
     }
 };
 

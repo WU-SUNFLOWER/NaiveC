@@ -37,6 +37,8 @@ class PrintVisitor : public Visitor, public TypeVisitor {
     llvm::Value* VisitPostIncExpr(PostIncExpr*) override;
     llvm::Value* VisitPostDecExpr(PostDecExpr*) override;
 
+    llvm::Value* VisitPostSubscript(PostSubscriptExpr*) override;
+
     // Virtual functions of TypeVisitor.
     llvm::Type* VisitPrimaryType(CPrimaryType*) override;
     llvm::Type* VisitPointerType(CPointerType*) override;

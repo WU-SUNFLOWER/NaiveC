@@ -251,9 +251,16 @@ llvm::Value *PrintVisitor::VisitVariableDecl(VariableDecl* decl) {
     decl->GetCType()->Accept(this);
     *out_ << decl->GetVariableName();
 
-    if (decl->init_node_) {
+    int nr_init_values = decl->init_values_.size();
+    if (nr_init_values > 0) {
         *out_ << "=";
-        decl->init_node_->Accept(this);
+        for (int i = 0; i < nr_init_values; ++i) {
+            const auto& init_value_struct = decl->init_values_[i];
+            init_value_struct->init_node->Accept(this);
+            if (i != nr_init_values - 1) {
+                *out_ << ",";
+            }
+        }
     }
     
     return nullptr;
@@ -284,6 +291,15 @@ llvm::Value *PrintVisitor::VisitPostDecExpr(PostDecExpr* expr) {
     return nullptr;
 }
 
+llvm::Value *PrintVisitor::VisitPostSubscript(PostSubscriptExpr* expr) {
+    expr->sub_node_->Accept(this);
+    *out_ << "[";
+    expr->index_node_->Accept(this);
+    *out_ << "]";
+
+    return nullptr;
+}
+
 llvm::Type *PrintVisitor::VisitPrimaryType(CPrimaryType* ctype) {
     if (ctype->GetKind() == CType::TypeKind::kInt) {
         *out_ << "int ";
@@ -297,7 +313,12 @@ llvm::Type *PrintVisitor::VisitPointerType(CPointerType* ctype) {
     return nullptr;
 }
 
-llvm::Type *PrintVisitor::VisitArrayType(CArrayType *) {
+llvm::Type *PrintVisitor::VisitArrayType(CArrayType* ctype) {
+    *out_ << "[";
+    *out_ << ctype->GetElementCount();
+    *out_ << "]";
+    ctype->GetElementType()->Accept(this);
+
     return nullptr;
 }
 

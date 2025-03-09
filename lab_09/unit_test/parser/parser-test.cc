@@ -155,7 +155,7 @@ TEST(ParserTest, unary_op) {
     ASSERT_EQ(res, true);
 }
 
-TEST(ParserTest, three_op) {
+TEST(ParserTest, tree_op) {
     bool res = TestParserWithContent("{int a=3;a>=3?a=5:-5;}", "{int a=3;a>=3?a=5:-5;}");
     ASSERT_EQ(res, true);
 }
@@ -177,5 +177,56 @@ TEST(ParserTest, sizeof_op) {
 
 TEST(ParserTest, assign_comma_op) {
     bool res = TestParserWithContent("{int a=3,b;a=3,b=4;}", "{int a=3;int b;a=3,b=4;}");
+    ASSERT_EQ(res, true);
+}
+
+TEST(ParserTest, array_one) {
+    bool res = TestParserWithContent("{int a[3];}", "{[3]int a;}");
+    ASSERT_EQ(res, true);
+}
+
+TEST(ParserTest, array_two) {
+    bool res = TestParserWithContent("{int a[3],b[5];}", "{[3]int a;[5]int b;}");
+    ASSERT_EQ(res, true);
+}
+
+TEST(ParserTest, array_three) {
+    bool res = TestParserWithContent("{int a[3][5][8];}", "{[3][5][8]int a;}");
+    ASSERT_EQ(res, true);
+}
+
+TEST(ParserTest, array_four) {
+    bool res = TestParserWithContent("{int** a[3][5][8];}", "{[3][5][8]int **a;}");
+    ASSERT_EQ(res, true);
+}
+
+TEST(ParserTest, array_five) {
+    bool res = TestParserWithContent("{int a[3],b[5][8];int *p[5];}", "{[3]int a;[5][8]int b;[5]int *p;}");
+    ASSERT_EQ(res, true);
+}
+
+TEST(ParserTest, sizeof_array1) {
+    bool res = TestParserWithContent("{sizeof (int [5]);}", "{sizeof ([5]int );}");
+    ASSERT_EQ(res, true);
+}
+
+TEST(ParserTest, sizeof_array2) {
+    bool res = TestParserWithContent("{sizeof (int* [5]);}", "{sizeof ([5]int *);}");
+    ASSERT_EQ(res, true);
+}
+
+TEST(ParserTest, sizeof_array3) {
+    bool res = TestParserWithContent("{sizeof (int* [5][3]);}", "{sizeof ([5][3]int *);}");
+    ASSERT_EQ(res, true);
+}
+
+
+TEST(ParserTest, post_arr_1) {
+    bool res = TestParserWithContent("{int a[3]; a[0] = 4;}", "{[3]int a;a[0]=4;}");
+    ASSERT_EQ(res, true);
+}
+
+TEST(ParserTest, arr_init1) {
+    bool res = TestParserWithContent("{int a[3]={1,2}; a[0] = 4;}", "{[3]int a=1,2;a[0]=4;}");
     ASSERT_EQ(res, true);
 }

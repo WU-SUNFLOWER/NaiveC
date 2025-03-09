@@ -94,10 +94,10 @@ std::shared_ptr<AstNode> Parser::ParseDirectDeclarator(std::shared_ptr<CType> ba
         return node;
     }
 
-    if (token_.GetType() == TokenType::kIdentifier) {
+    if (token_.GetType() != TokenType::kIdentifier) {
         GetDiagEngine().Report(llvm::SMLoc::getFromPointer(token_.GetRawContentPtr()),
                                Diag::kErrExpectedDeclare,
-                               "identifier or '(");
+                               "identifier or '('");
     }
     Token identifier_tok = token_;
     Consume(TokenType::kIdentifier);
@@ -114,7 +114,8 @@ std::shared_ptr<AstNode> Parser::ParseDirectDeclarator(std::shared_ptr<CType> ba
     if (token_.GetType() == TokenType::kEqual) {
         Advance();
         VariableDecl* raw_decl_node = llvm::dyn_cast<VariableDecl>(variable_decl_node.get());
-        raw_decl_node->init_node_ = ParseAssignExpr();
+        std::vector<int> index_list;
+        ParseInitializer(raw_decl_node->init_values_, base_type, index_list, false);
     }
 
     return variable_decl_node;
@@ -137,6 +138,52 @@ std::shared_ptr<CType> Parser::ParseDirectDeclaratorArraySuffix(std::shared_ptr<
     Consume(TokenType::kRBracket);
 
     return std::make_shared<CArrayType>(ParseDirectDeclaratorArraySuffix(element_type), array_element_cnt);
+}
+
+bool Parser::ParseInitializer(
+    std::vector<std::shared_ptr<VariableDecl::InitValue>> &init_values, 
+    std::shared_ptr<CType> decl_type, 
+    std::vector<int> &index_list,
+    bool has_lbrace)
+{
+    if (token_.GetType() == TokenType::kRBrace) {
+        if (!has_lbrace) {
+            GetDiagEngine().Report(llvm::SMLoc::getFromPointer(token_.GetRawContentPtr()),
+                                   Diag::kErrMiss,
+                                   "{");
+        }
+        return true;
+    }
+
+    if (token_.GetType() == TokenType::kLBrace) {
+        Consume(TokenType::kLBrace);
+        {
+            if (decl_type->GetKind() == CType::TypeKind::kArray) {
+                CArrayType* array_type = llvm::dyn_cast<CArrayType>(decl_type.get());
+                int element_count = array_type->GetElementCount();
+
+                for (int i = 0; i < element_count; ++i) {
+                    if (0 < i && token_.GetType() == TokenType::kComma) {
+                        Advance();
+                    }
+                    
+                    index_list.push_back(i);
+                    bool end = ParseInitializer(init_values, array_type->GetElementType(), index_list, true);
+                    index_list.pop_back();
+
+                    if (end) break;
+                }
+            }
+        }
+        Consume(TokenType::kRBrace);
+    } else {
+        Token tmp = token_;
+        auto init_node = ParseAssignExpr();
+        auto init_value_struct = sema_.SemaDeclInitValueStruct(decl_type, init_node, index_list, tmp);
+        init_values.emplace_back(init_value_struct);
+    }
+
+    return false;
 }
 
 std::shared_ptr<AstNode> Parser::ParseDeclStmt() {
@@ -587,12 +634,20 @@ std::shared_ptr<AstNode> Parser::ParsePostFixExpr() {
         switch (token_.GetType()) {
             case TokenType::kPlusPlus: {
                 Advance();
-                left = sema_.SemaPostIncExpr(left, tmp);
+                left = sema_.SemaPostIncExprNode(left, tmp);
                 continue;                
             }
             case TokenType::kMinusMinus: {
                 Advance();
-                left = sema_.SemaPostDecExpr(left, tmp);
+                left = sema_.SemaPostDecExprNode(left, tmp);
+                continue;
+            }
+            case TokenType::kLBracket: {
+                Token tmp = token_;
+                Consume(TokenType::kLBracket);
+                auto index_node = ParseExpr();
+                Consume(TokenType::kRBracket);
+                left = sema_.SemaPostSubscriptExprNode(left, index_node, tmp);
                 continue;
             }
         }
@@ -710,23 +765,23 @@ std::shared_ptr<AstNode> Parser::ParsePrimaryExpr() {
     return number_expr;
 }
 
+// Some examples:
+//  1. sizeof(int);
+//  2. sizeof(int[5][6]);
+//  3. sizeof(int**);
+//  4. sizeof(int*[5][6]);
 std::shared_ptr<CType> Parser::ParseTypeName() {
-    std::shared_ptr<CType> base_type = nullptr;
-    if (token_.GetType() == TokenType::kInt) {
-        base_type = CType::kIntType;
-    }
-    else {
-        GetDiagEngine().Report(llvm::SMLoc::getFromPointer(token_.GetRawContentPtr()), Diag::kErrType);
-        return nullptr;
-    }
-
-    // Consume typename
-    Advance();
+    // Get the base type and consume the corresponding token.
+    auto base_type = ParseDeclSpec();
     
     // Process pointer typename
     while (token_.GetType() == TokenType::kStar) {
         base_type = std::make_shared<CPointerType>(base_type);
         Consume(TokenType::kStar);
+    }
+
+    if (token_.GetType() == TokenType::kLBracket) {
+        base_type = ParseDirectDeclaratorArraySuffix(base_type);
     }
 
     return base_type;

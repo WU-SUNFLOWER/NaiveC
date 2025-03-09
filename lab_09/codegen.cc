@@ -542,9 +542,33 @@ llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
     llvm::Value* variable_addr = ir_builder_.CreateAlloca(ir_type, nullptr, variable_name);
     variable_map_.insert({ variable_name, { variable_addr, ir_type } });
 
-    if (decl_node->init_node_) {
-        auto init_val = decl_node->init_node_->Accept(this);
-        ir_builder_.CreateStore(init_val, variable_addr);
+    int nr_init_values = decl_node->init_values_.size();
+    if (nr_init_values > 0) {
+        if (nr_init_values == 1) {
+            auto init_value_struct = decl_node->init_values_[0];
+            auto init_value = init_value_struct->init_node->Accept(this);
+            ir_builder_.CreateStore(init_value, variable_addr);            
+        } 
+        else if (llvm::ArrayType* arr_type = llvm::dyn_cast<llvm::ArrayType>(ir_type)) {
+            for (const auto& init_value_struct : decl_node->init_values_) {
+                // Create llvm-style index list.
+                llvm::SmallVector<llvm::Value*> llvm_index_list;
+                for (auto index : init_value_struct->index_list) {
+                    llvm_index_list.push_back(ir_builder_.getInt32(index));
+                }
+                // Create code to compute the address and value of this element.
+                llvm::Value* element_addr = ir_builder_.CreateInBoundsGEP(
+                                                            arr_type->getElementType(),
+                                                            variable_addr,
+                                                            llvm_index_list);
+                llvm::Value* element_value = init_value_struct->init_node->Accept(this);
+                // Create store code.
+                ir_builder_.CreateStore(element_value, element_addr);
+            }
+        }
+        else {
+            assert(0);
+        }
     }
 
     return variable_addr;
@@ -584,6 +608,22 @@ llvm::Value *CodeGen::VisitPostDecExpr(PostDecExpr* expr) {
     return value;
 }
 
+llvm::Value *CodeGen::VisitPostSubscript(PostSubscriptExpr* expr) {
+    llvm::Type* element_type = expr->GetCType()->Accept(this);
+    llvm::Value* array = expr->sub_node_->Accept(this);
+    llvm::Value* index = expr->index_node_->Accept(this);
+
+    // Q: Why we should call `getPointerOperand()` method of `array` here?
+    // A: Get the first address of our target.
+    // For example, since `array` is an array pointer, for accessing `array[index]`, 
+    // we should get the array's starting address at first,
+    // instead of the value of the first element in this array, i.e. `*array`.
+    llvm::Value* array_addr = llvm::dyn_cast<llvm::LoadInst>(array)->getPointerOperand();
+    // Compute the address of `array[index]`.
+    llvm::Value* element_addr = ir_builder_.CreateInBoundsGEP(element_type, array_addr, { index });
+
+    return ir_builder_.CreateLoad(element_type, element_addr);
+}
 
 llvm::Value* CodeGen::VisitNumberExpr(NumberExpr *factor_expr) {
     return ir_builder_.getInt32(factor_expr->GetNumber());
@@ -602,4 +642,10 @@ llvm::Type *CodeGen::VisitPrimaryType(CPrimaryType* ctype) {
 llvm::Type *CodeGen::VisitPointerType(CPointerType* ctype) {
     llvm::Type* base_type = ctype->GetBaseType()->Accept(this);
     return llvm::PointerType::getUnqual(base_type);
+}
+
+llvm::Type *CodeGen::VisitArrayType(CArrayType* ctype) {
+    llvm::Type* element_type = ctype->GetElementType()->Accept(this);
+
+    return llvm::ArrayType::get(element_type, ctype->GetElementCount());
 }

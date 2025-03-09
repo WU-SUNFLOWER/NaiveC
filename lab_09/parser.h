@@ -53,6 +53,10 @@ class Parser {
     std::shared_ptr<AstNode> ParseDeclarator(std::shared_ptr<CType> ctype);
     std::shared_ptr<AstNode> ParseDirectDeclarator(std::shared_ptr<CType> ctype);
     std::shared_ptr<CType> ParseDirectDeclaratorArraySuffix(std::shared_ptr<CType> ctype);
+    bool ParseInitializer(std::vector<std::shared_ptr<VariableDecl::InitValue>>& init_values,
+                          std::shared_ptr<CType> decl_type,
+                          std::vector<int>& index_list,
+                          bool has_lbrace);
 
     std::shared_ptr<AstNode> ParseExprStmt();
     std::shared_ptr<AstNode> ParseIfStmt();

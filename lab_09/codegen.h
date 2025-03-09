@@ -66,6 +66,8 @@ class CodeGen : public Visitor, public TypeVisitor {
     llvm::Value* VisitPostIncExpr(PostIncExpr*) override;
     llvm::Value* VisitPostDecExpr(PostDecExpr*) override;
 
+    llvm::Value* VisitPostSubscript(PostSubscriptExpr*) override;
+
     llvm::Type* VisitPrimaryType(CPrimaryType*) override;
     llvm::Type* VisitPointerType(CPointerType*) override;
     llvm::Type* VisitArrayType(CArrayType*) override;
