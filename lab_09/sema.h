@@ -12,15 +12,24 @@
 #include "diag-engine.h"
 
 class Sema {
+ public:
+    enum class Mode {
+        kNormal,
+        kSkip,
+    };
+
  private:
+    Mode mode_;
     Scope scope_;
     DiagEngine& diag_engine_;
 
  public:
-    explicit Sema(DiagEngine& diag_engine) : diag_engine_(diag_engine) {}
+    explicit Sema(DiagEngine& diag_engine) : diag_engine_(diag_engine), mode_(Mode::kNormal) {}
 
     void EnterScope();
     void ExitScope();
+
+    void SetMode(Mode mode);
 
     std::shared_ptr<AstNode> SemaVariableDeclNode(Token& token, std::shared_ptr<CType> ctype);
 

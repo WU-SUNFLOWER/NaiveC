@@ -17,12 +17,16 @@ void Sema::ExitScope() {
     scope_.ExitScope();
 }
 
+void Sema::SetMode(Mode mode) {
+    mode_ = mode;
+}
+
 std::shared_ptr<AstNode> Sema::SemaVariableDeclNode(Token& token, std::shared_ptr<CType> ctype) {
     // 1. Has the variable name already been defined?
     auto name = token.GetContent();
     auto symbol = scope_.FindVarSymbolInCurrentEnv(name);
 
-    if (symbol) {
+    if (mode_ == Mode::kNormal && symbol) {
         diag_engine_.Report(
                 llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
                 Diag::kErrRedefined,
@@ -30,7 +34,9 @@ std::shared_ptr<AstNode> Sema::SemaVariableDeclNode(Token& token, std::shared_pt
     }
 
     // 2. Add the symbol name to symbol table.
-    scope_.AddSymbol(name, SymbolKind::kLocalVariable, ctype);
+    if (mode_ == Mode::kNormal) {
+        scope_.AddSymbol(name, SymbolKind::kLocalVariable, ctype);
+    }
 
     // 3. Allocate the variable declare node object.
     auto node = std::make_shared<VariableDecl>();
@@ -43,7 +49,7 @@ std::shared_ptr<AstNode> Sema::SemaVariableAccessNode(Token& token) {
     auto name = token.GetContent();
     auto symbol = scope_.FindVarSymbol(name);
 
-    if (!symbol) {
+    if (mode_ == Mode::kNormal && !symbol) {
         diag_engine_.Report(
                 llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
                 Diag::kErrUndefined,
@@ -97,7 +103,7 @@ std::shared_ptr<AstNode> Sema::SemaUnaryExprNode(std::shared_ptr<AstNode> sub, U
         case UnaryOpCode::kNegative:
         case UnaryOpCode::kLogicalNot:
         case UnaryOpCode::kBitwiseNot: {
-            if (sub_ctype->GetKind() != CType::TypeKind::kInt) {
+            if (mode_ == Mode::kNormal && sub_ctype->GetKind() != CType::TypeKind::kInt) {
                 diag_engine_.Report(
                     llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
                     Diag::kErrExpectedType, 
@@ -107,7 +113,7 @@ std::shared_ptr<AstNode> Sema::SemaUnaryExprNode(std::shared_ptr<AstNode> sub, U
             break;            
         }
         case UnaryOpCode::kAddress: {
-            if (!sub->IsLValue()) {
+            if (mode_ == Mode::kNormal && !sub->IsLValue()) {
                 diag_engine_.Report(
                     llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
                     Diag::kErrExpectedLValue);
@@ -116,7 +122,7 @@ std::shared_ptr<AstNode> Sema::SemaUnaryExprNode(std::shared_ptr<AstNode> sub, U
             break;            
         }
         case UnaryOpCode::kDereference: {
-            if (sub_ctype->GetKind() != CType::TypeKind::kPointer) {
+            if (mode_ == Mode::kNormal && sub_ctype->GetKind() != CType::TypeKind::kPointer) {
                 diag_engine_.Report(
                     llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
                     Diag::kErrExpectedType, 
@@ -130,7 +136,7 @@ std::shared_ptr<AstNode> Sema::SemaUnaryExprNode(std::shared_ptr<AstNode> sub, U
         // We can use `++` or `--` for both integer and pointer variable.
         case UnaryOpCode::kSelfIncreasing:
         case UnaryOpCode::kSelfDecreasing: {
-            if (!sub->IsLValue()) {
+            if (mode_ == Mode::kNormal && !sub->IsLValue()) {
                 diag_engine_.Report(
                     llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
                     Diag::kErrExpectedLValue);
@@ -149,7 +155,9 @@ std::shared_ptr<AstNode> Sema::SemaTernaryExprNode(
     std::shared_ptr<AstNode> els_node,
     Token& token)
 {
-    if (then_node->GetCType()->GetKind() != els_node->GetCType()->GetKind()) {
+    if (mode_ == Mode::kNormal && 
+        then_node->GetCType()->GetKind() != els_node->GetCType()->GetKind()
+    ) {
         diag_engine_.Report(llvm::SMLoc::getFromPointer(token.GetRawContentPtr()), Diag::kErrSameType);
     }
 
@@ -174,7 +182,7 @@ std::shared_ptr<AstNode> Sema::SemaSizeofExprNode(
 }
 
 std::shared_ptr<AstNode> Sema::SemaPostIncExprNode(std::shared_ptr<AstNode> sub, Token& token) {
-    if (!sub->IsLValue()) {
+    if (mode_ == Mode::kNormal && !sub->IsLValue()) {
         diag_engine_.Report(
             llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
             Diag::kErrExpectedLValue);
@@ -187,7 +195,7 @@ std::shared_ptr<AstNode> Sema::SemaPostIncExprNode(std::shared_ptr<AstNode> sub,
 }
 
 std::shared_ptr<AstNode> Sema::SemaPostDecExprNode(std::shared_ptr<AstNode> sub, Token& token) {
-    if (!sub->IsLValue()) {
+    if (mode_ == Mode::kNormal && !sub->IsLValue()) {
         diag_engine_.Report(
             llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
             Diag::kErrExpectedLValue);
@@ -205,7 +213,9 @@ std::shared_ptr<VariableDecl::InitValue> Sema::SemaDeclInitValueStruct(
     std::vector<int> &index_list,
     Token& token)
 {
-    if (decl_type->GetKind() != init_node->GetCType()->GetKind()) {
+    if (mode_ == Mode::kNormal && 
+        decl_type->GetKind() != init_node->GetCType()->GetKind()) 
+    {
         diag_engine_.Report(
             llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
             Diag::kErrMiss,
@@ -241,9 +251,11 @@ std::shared_ptr<AstNode> Sema::SemaPostSubscriptExprNode(
             break;
         }
         default: {
-            diag_engine_.Report(llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
-                                Diag::kErrExpectedType,
-                                "array or pointer");
+            if (mode_ == Mode::kNormal) {
+                diag_engine_.Report(llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
+                                    Diag::kErrExpectedType,
+                                    "array or pointer");                
+            }
             break;
         }
     }

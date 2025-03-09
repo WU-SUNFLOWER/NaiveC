@@ -87,38 +87,76 @@ std::shared_ptr<AstNode> Parser::ParseDeclarator(std::shared_ptr<CType> base_typ
 }
 
 std::shared_ptr<AstNode> Parser::ParseDirectDeclarator(std::shared_ptr<CType> base_type) {
-    if (token_.GetType() == TokenType::kLParent) {
-        Consume(TokenType::kLParent);
-        auto node = ParseDeclarator(base_type);
-        Consume(TokenType::kRParent);
-        return node;
+    std::shared_ptr<AstNode> variable_decl_node = nullptr;
+    
+    // Create the declarator node.
+    switch (token_.GetType()) {
+        // Process the common situation, e.g. `int x, y=100;` or `int ar[3] = { 1, 2, 3 }`.
+        case TokenType::kIdentifier: {
+            Token identifier_tok = token_;
+            Consume(TokenType::kIdentifier);
+            // Process array declarator, just like `A[1][2][3]...`
+            base_type = ParseDirectDeclaratorSuffix(base_type);
+            // Create AST node.
+            variable_decl_node = sema_.SemaVariableDeclNode(identifier_tok, base_type);
+            break;
+        }
+        // Process the special situation, e.g. `int (*p)[3][4] = &a;`.
+        case TokenType::kLParent: {
+            // At first time, let's look forward.
+            Token history_tok = token_;
+            lexer_.SaveState();
+            sema_.SetMode(Sema::Mode::kSkip);
+            {
+                Consume(TokenType::kLParent);
+                // In this time while calling `ParseDeclarator`, 
+                // we don't care about what you filled in the parentheses.
+                // So, we just pass a dummy argument here.
+                ParseDeclarator(CType::kIntType);
+                Consume(TokenType::kRParent);
+                // However, we are interested in what you wrote after the right parenthesis.
+                base_type = ParseDirectDeclaratorSuffix(base_type);
+            }
+            sema_.SetMode(Sema::Mode::kNormal);
+            lexer_.RestoreState();
+            token_ = history_tok;
+
+            // At second time, let's read what you wrote in the parentheses,
+            // and combine it with what you wrote after the right parenthesis.
+            Consume(TokenType::kLParent);
+            variable_decl_node = ParseDeclarator(base_type);
+            Consume(TokenType::kRParent);
+            // Note that in second time, we just need to ignore
+            // what you wrote after the right parenthesis.
+            // So, we just pass a dummy argument here.
+            ParseDirectDeclaratorSuffix(CType::kIntType);
+
+            break;
+        }
+        default: {
+            GetDiagEngine().Report(llvm::SMLoc::getFromPointer(token_.GetRawContentPtr()),
+                                Diag::kErrExpectedDeclare,
+                                "identifier or '('");     
+        }
     }
 
-    if (token_.GetType() != TokenType::kIdentifier) {
-        GetDiagEngine().Report(llvm::SMLoc::getFromPointer(token_.GetRawContentPtr()),
-                               Diag::kErrExpectedDeclare,
-                               "identifier or '('");
-    }
-    Token identifier_tok = token_;
-    Consume(TokenType::kIdentifier);
-
-    // `A[1][2][3]...`
-    if (token_.GetType() == TokenType::kLBracket) {
-        // Parse the suffix of array.
-        base_type = ParseDirectDeclaratorArraySuffix(base_type);
-    }
-
-    // Create AST node.
-    auto variable_decl_node = sema_.SemaVariableDeclNode(identifier_tok, base_type);
-
+    // Create tne initializer node.
     if (token_.GetType() == TokenType::kEqual) {
         Advance();
         VariableDecl* raw_decl_node = llvm::dyn_cast<VariableDecl>(variable_decl_node.get());
         std::vector<int> index_list;
-        ParseInitializer(raw_decl_node->init_values_, base_type, index_list, false);
+        ParseInitializer(raw_decl_node->init_values_, raw_decl_node->GetCType(), index_list, false);
     }
 
     return variable_decl_node;
+}
+
+std::shared_ptr<CType> Parser::ParseDirectDeclaratorSuffix(std::shared_ptr<CType> base_type) {
+    // Parse the suffix of array.
+    if (token_.GetType() == TokenType::kLBracket) {
+        base_type = ParseDirectDeclaratorArraySuffix(base_type);
+    }
+    return base_type;
 }
 
 // NOTE: 
