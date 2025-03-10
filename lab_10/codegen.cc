@@ -664,7 +664,10 @@ llvm::Type* CodeGen::VisitRecordType(CRecordType* ctype) {
             break;
         }
         case CType::TagKind::kUnion: {
-            // TO DO
+            auto& members = ctype->GetMembers();
+            auto rank = ctype->GetMaxSizeMemberRank();
+            auto llvm_type = members[rank].type->Accept(this);
+            struct_type->setBody(llvm_type);
             break;
         }
         default: {
@@ -673,4 +676,12 @@ llvm::Type* CodeGen::VisitRecordType(CRecordType* ctype) {
     }
 
     return struct_type;
+}
+
+llvm::Value *CodeGen::VisitPostMemberDotExpr(PostMemberDotExpr *) {
+    return nullptr;
+}
+
+llvm::Value *CodeGen::VisitPostMemberArrowExpr(PostMemberArrowExpr *) {
+    return nullptr;
 }

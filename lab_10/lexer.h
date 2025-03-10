@@ -52,10 +52,14 @@ enum class TokenType {
     kPipeEqual,             // '|='
     kQuestion,              // '?'
     kColon,                 // ':'
-
-    kIdentifier,            // (a-zA-Z_)(a-zA-Z0-9_)*
     kComma,                 // ','
     kSemi,                  // ';'
+    kLBracket,              // '['
+    kRBracket,              // ']'
+    kDot,                   // '.'
+    kArrow,                 // '->'
+
+    kIdentifier,            // (a-zA-Z_)(a-zA-Z0-9_)*
 
     kInt,                   // 'int'
     kIf,                    // 'if'
@@ -66,9 +70,6 @@ enum class TokenType {
     kSizeof,                // 'sizeof'
     kStruct,                // 'struct'
     kUnion,                 // 'union'
-
-    kLBracket,              // '['
-    kRBracket,              // ']'
 
     kEOF,                   // The end of file
     kUnknown,

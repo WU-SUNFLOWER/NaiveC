@@ -176,6 +176,12 @@ void Lexer::GetNextToken(Token& token) {
                     token.content_length_ = 2;
                     token.type_ = TokenType::kMinusMinus;
                 }
+                else if (*(buf_ + 1) == '>') {
+                    buf_ += 2;
+                    token.content_ptr_ = start;
+                    token.content_length_ = 2;
+                    token.type_ = TokenType::kArrow;
+                }
                 else {
                     ++buf_;
                     token.content_ptr_ = start;
@@ -280,6 +286,12 @@ void Lexer::GetNextToken(Token& token) {
                 token.content_ptr_ = start;
                 token.content_length_ = 1;
                 token.type_ = TokenType::kComma;
+                break;
+            case '.':
+                ++buf_;
+                token.content_ptr_ = start;
+                token.content_length_ = 1;
+                token.type_ = TokenType::kDot;
                 break;
             case '=': {
                 if (*(buf_ + 1) == '=') {
@@ -523,6 +535,8 @@ llvm::StringRef Token::GetSpellingText(TokenType token_type) {
             return "=";
         case TokenType::kComma:
             return ",";
+        case TokenType::kDot:
+            return ".";
         case TokenType::kInt:
             return "int";
         case TokenType::kIf:
@@ -545,6 +559,8 @@ llvm::StringRef Token::GetSpellingText(TokenType token_type) {
             return "[";
         case TokenType::kRBracket:
             return "]";
+        case TokenType::kArrow:
+            return "->";
         case TokenType::kEOF:
             return "EOF";
         default:

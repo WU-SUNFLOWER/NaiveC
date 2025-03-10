@@ -123,7 +123,7 @@ std::shared_ptr<CType> Parser::ParseStructOrUnionSpec() {
         Consume(TokenType::kRBrace);
 
         return sema_.SemaTagDecl(tag_symbol, members, tag_kind);
-    } 
+    }
     // Case 2: user want to use defined struct or union.
     else {
         return sema_.SemaTagAccess(tag_symbol);
@@ -717,6 +717,22 @@ std::shared_ptr<AstNode> Parser::ParsePostFixExpr() {
                 auto index_node = ParseExpr();
                 Consume(TokenType::kRBracket);
                 left = sema_.SemaPostSubscriptExprNode(left, index_node, tmp);
+                continue;
+            }
+            case TokenType::kDot : {
+                Token op_token = token_;
+                Consume(TokenType::kDot);
+                Token member_token = token_;
+                Consume(TokenType::kIdentifier);
+                left = sema_.SemaPostMemberDotExprNode(left, op_token, member_token);
+                continue;
+            }
+            case TokenType::kArrow: {
+                Token op_token = token_;
+                Consume(TokenType::kArrow);
+                Token member_token = token_;
+                Consume(TokenType::kIdentifier);
+                left = sema_.SemaPostMemberArrowExprNode(left, op_token, member_token);
                 continue;
             }
         }

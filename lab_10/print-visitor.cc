@@ -342,3 +342,19 @@ llvm::Type *PrintVisitor::VisitRecordType(CRecordType* ctype) {
 
     return nullptr;
 }
+
+llvm::Value *PrintVisitor::VisitPostMemberDotExpr(PostMemberDotExpr* expr) {
+    expr->struct_node_->Accept(this);
+    *out_ << ".";
+    *out_ << expr->target_member_.name;
+
+    return nullptr;
+}
+
+llvm::Value *PrintVisitor::VisitPostMemberArrowExpr(PostMemberArrowExpr* expr) {
+    expr->struct_pointer_node_->Accept(this);
+    *out_ << "->";
+    *out_ << expr->target_member_.name;
+
+    return nullptr;
+}

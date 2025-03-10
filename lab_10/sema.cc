@@ -324,3 +324,82 @@ std::shared_ptr<CType> Sema::SemaTagAccess(Token &token) {
 
     return symbol->GetCType();
 }
+
+std::shared_ptr<AstNode> Sema::SemaPostMemberDotExprNode(
+    std::shared_ptr<AstNode> struct_node,
+    Token& op_token,
+    Token& member_token)
+{
+    if (struct_node->GetCType()->GetKind() != CType::TypeKind::kRecord) {
+        diag_engine_.Report(
+                llvm::SMLoc::getFromPointer(op_token.GetRawContentPtr()),
+                Diag::kErrExpectedType,
+                "struct or union type");
+    }
+
+    const CRecordType::Member* target_member = nullptr;
+    CRecordType* record_type = llvm::dyn_cast<CRecordType>(struct_node->GetCType().get());
+    for (const auto& member : record_type->GetMembers()) {
+        if (member.name == member_token.GetContent()) {
+            target_member = &member;
+            break;
+        }
+    }
+
+    if (!target_member) {
+        diag_engine_.Report(
+                llvm::SMLoc::getFromPointer(member_token.GetRawContentPtr()),
+                Diag::kErrMiss,
+                "struct or union member");
+    }
+
+    auto node = std::make_shared<PostMemberDotExpr>();
+    node->struct_node_ = struct_node;
+    node->target_member_ = *target_member;
+
+    return node;
+}
+
+std::shared_ptr<AstNode> Sema::SemaPostMemberArrowExprNode(
+    std::shared_ptr<AstNode> struct_pointer_node, 
+    Token& op_token,
+    Token& member_token)
+{
+    if (struct_pointer_node->GetCType()->GetKind() != CType::TypeKind::kPointer) {
+        diag_engine_.Report(
+                llvm::SMLoc::getFromPointer(op_token.GetRawContentPtr()),
+                Diag::kErrExpectedType,
+                "struct or union pointer type");
+    }
+
+    auto pointer_type = llvm::dyn_cast<CPointerType>(struct_pointer_node->GetCType().get());
+    auto pointer_base_type = pointer_type->GetBaseType();
+    if (pointer_base_type->GetKind() != CType::TypeKind::kRecord) {
+        diag_engine_.Report(
+                llvm::SMLoc::getFromPointer(op_token.GetRawContentPtr()),
+                Diag::kErrExpectedType,
+                "struct or union pointer type");
+    }
+
+    const CRecordType::Member* target_member = nullptr;
+    CRecordType* record_type = llvm::dyn_cast<CRecordType>(pointer_base_type.get());
+    for (const auto& member : record_type->GetMembers()) {
+        if (member.name == member_token.GetContent()) {
+            target_member = &member;
+            break;
+        }
+    }
+
+    if (!target_member) {
+        diag_engine_.Report(
+                llvm::SMLoc::getFromPointer(member_token.GetRawContentPtr()),
+                Diag::kErrMiss,
+                "struct or union member");
+    }
+
+    auto node = std::make_shared<PostMemberArrowExpr>();
+    node->struct_pointer_node_ = struct_pointer_node;
+    node->target_member_ = *target_member;
+
+    return node;
+}

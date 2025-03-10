@@ -143,6 +143,8 @@ class CRecordType : public CType {
         // Which member it is in the structure.
         int rank;
 
+        Member() {}
+
         Member(std::shared_ptr<CType> type, llvm::StringRef name)
             : type(type), name(name), offset(0), rank(0) {}
     };
@@ -151,6 +153,8 @@ class CRecordType : public CType {
     llvm::StringRef name_;
     std::vector<Member> members_;
     TagKind tag_kind_;
+
+    int max_size_member_rank_;
 
     void ComputeStructMemberOffsets();
     void ComputeUnionMemberOffsets();
@@ -164,6 +168,10 @@ class CRecordType : public CType {
 
     const std::vector<Member>& GetMembers() const {
         return members_;
+    }
+
+    int GetMaxSizeMemberRank() const {
+        return max_size_member_rank_;
     }
 
     TagKind GetTagKind() const {

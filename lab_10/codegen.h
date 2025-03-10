@@ -68,6 +68,9 @@ class CodeGen : public Visitor, public TypeVisitor {
 
     llvm::Value* VisitPostSubscript(PostSubscriptExpr*) override;
 
+    llvm::Value* VisitPostMemberDotExpr(PostMemberDotExpr*) override;
+    llvm::Value* VisitPostMemberArrowExpr(PostMemberArrowExpr*) override;
+
     // Convert NaiveC type object to LLVM type object by these methods.
     llvm::Type* VisitPrimaryType(CPrimaryType*) override;
     llvm::Type* VisitPointerType(CPointerType*) override;

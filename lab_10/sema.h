@@ -81,6 +81,15 @@ class Sema {
                                        const std::vector<CRecordType::Member> members, 
                                        CType::TagKind tag_kind); 
     std::shared_ptr<CType> SemaTagAccess(Token& token);
+
+    std::shared_ptr<AstNode> SemaPostMemberDotExprNode(
+                                       std::shared_ptr<AstNode> struct_node, 
+                                       Token& op_token, 
+                                       Token& token);
+    std::shared_ptr<AstNode> SemaPostMemberArrowExprNode(
+                                       std::shared_ptr<AstNode> struct_node,
+                                       Token& op_token, 
+                                       Token& token);
 };
 
 #endif  // SEMA_H_

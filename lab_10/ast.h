@@ -37,6 +37,9 @@ class PostDecExpr;
 
 class PostSubscriptExpr;
 
+class PostMemberDotExpr;
+class PostMemberArrowExpr;
+
 class Visitor {
  public:
     virtual ~Visitor() {}
@@ -63,6 +66,9 @@ class Visitor {
     virtual llvm::Value* VisitPostDecExpr(PostDecExpr*) = 0;
 
     virtual llvm::Value* VisitPostSubscript(PostSubscriptExpr*) = 0;
+    
+    virtual llvm::Value* VisitPostMemberDotExpr(PostMemberDotExpr*) = 0;
+    virtual llvm::Value* VisitPostMemberArrowExpr(PostMemberArrowExpr*) = 0;
 };
 
 class AstNode {
@@ -88,6 +94,9 @@ class AstNode {
         kPostDecExpr,
 
         kPostSubscriptExpr,
+
+        kPostMemberDotExpr,
+        kPostMemberArrowExpr,
     };
 
  private:
@@ -481,6 +490,38 @@ class PostSubscriptExpr : public AstNode {
     // Provide support for LLVM RTTI
     static bool classof(const AstNode* node) {
         return node->GetNodeKind() == AstNodeKind::kPostSubscriptExpr;
+    }
+};
+
+class PostMemberDotExpr : public AstNode {
+ public:
+    std::shared_ptr<AstNode> struct_node_;
+    CRecordType::Member target_member_;
+    
+    PostMemberDotExpr() : AstNode(AstNodeKind::kPostMemberDotExpr) {}
+
+    llvm::Value* Accept(Visitor* vis) override {
+        return vis->VisitPostMemberDotExpr(this);
+    }
+
+    static bool classof(const AstNode* node) {
+        return node->GetNodeKind() == AstNodeKind::kPostMemberDotExpr;
+    }
+};
+
+class PostMemberArrowExpr : public AstNode {
+ public:
+    std::shared_ptr<AstNode> struct_pointer_node_;
+    CRecordType::Member target_member_;
+    
+    PostMemberArrowExpr() : AstNode(AstNodeKind::kPostMemberArrowExpr) {}
+
+    llvm::Value* Accept(Visitor* vis) override {
+        return vis->VisitPostMemberArrowExpr(this);
+    }
+
+    static bool classof(const AstNode* node) {
+        return node->GetNodeKind() == AstNodeKind::kPostMemberArrowExpr;
     }
 };
 

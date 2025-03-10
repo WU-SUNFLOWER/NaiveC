@@ -8,7 +8,8 @@ std::shared_ptr<CType> const CType::kIntType = std::make_shared<CPrimaryType>(Ty
 
 
 CRecordType::CRecordType(llvm::StringRef name, const std::vector<Member> members, TagKind tag_kind)
-    : CType(CType::TypeKind::kRecord, 0, 0), name_(name), members_(members), tag_kind_(tag_kind)
+    : CType(CType::TypeKind::kRecord, 0, 0), name_(name), members_(members), tag_kind_(tag_kind),
+      max_size_member_rank_(-1)
 {
     // TO DO: Compute size and algin.
     switch (tag_kind_) {
@@ -30,6 +31,7 @@ void CRecordType::ComputeStructMemberOffsets() {
     int rank = 0;
     size_t total_size = 0;
     size_t max_element_align = 0;
+    size_t max_element_size = 0;
 
     for (auto& member : members_) {
         size_t member_size = member.type->GetSize();
@@ -43,8 +45,40 @@ void CRecordType::ComputeStructMemberOffsets() {
         max_element_align = std::max(max_element_align, member_algin);
         // Update offset, preparing for next member.
         offset += member_size;
+
+        // Save the rank of max size member.
+        if (max_element_size < member_size) {
+            max_element_size = member_size;
+            max_size_member_rank_ = member.rank;
+        }
     }
 
     size_ = RoundUp(offset, max_element_align);
+    align_ = max_element_align;
+}
+
+void CRecordType::ComputeUnionMemberOffsets() {
+    int rank = 0;
+
+    size_t max_element_align = 0;
+    size_t max_element_size = 0;
+
+    for (auto& member : members_) {
+        size_t member_size = member.type->GetSize();
+        size_t member_algin = member.type->GetAlign();
+
+        member.offset = 0;
+        member.rank = rank++;
+
+        max_element_align = std::max(max_element_align, member_algin);
+
+        // Save the rank of max size member.
+        if (max_element_size < member_size) {
+            max_element_size = member_size;
+            max_size_member_rank_ = member.rank;
+        }
+    }
+
+    size_ = RoundUp(max_element_size, max_element_align);
     align_ = max_element_align;
 }

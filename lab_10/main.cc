@@ -47,9 +47,9 @@ int main(int argc, char* argv[]) {
     Parser parser(lexer, sema);
     auto program = parser.ParseProgram();
 
-    //PrintVisitor visitor(program);
+    PrintVisitor visitor(program);
     
-    CodeGen generator(program);    
+    //CodeGen generator(program);    
 
     return 0;
 }
