@@ -6,6 +6,24 @@
 
 std::shared_ptr<CType> const CType::kIntType = std::make_shared<CPrimaryType>(TypeKind::kInt, 4, 4);
 
+llvm::StringRef CType::GenAnonyRecordName(TagKind tag_kind) {
+    static int64_t ticket = 0;
+    std::string name;
+
+    switch (tag_kind) {
+        case TagKind::kStruct:
+            name += "__anonymous_struct_" + std::to_string(ticket) + "__";
+            break;
+        case TagKind::kUnion:
+            name += "__anonymous_union_" + std::to_string(ticket) + "__";
+            break;
+    }
+
+    char* buf = new char[name.size() + 1]();
+    strncpy(buf, name.data(), name.size());
+
+    return llvm::StringRef(buf, name.size());
+}
 
 CRecordType::CRecordType(llvm::StringRef name, const std::vector<Member> members, TagKind tag_kind)
     : CType(CType::TypeKind::kRecord, 0, 0), name_(name), members_(members), tag_kind_(tag_kind),

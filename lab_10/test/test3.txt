@@ -1,0 +1,14 @@
+{
+    union A {
+        int a, b;
+        int* p;
+    };
+
+    union A my_union_1;
+    union A my_union_2;
+    union A my_union_3;
+
+    my_union_1.a = 1;
+    my_union_2.a = 2;
+    my_union_3.a = 3;
+}

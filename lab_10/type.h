@@ -66,6 +66,8 @@ class CType {
     }
 
     static std::shared_ptr<CType> const kIntType;
+
+    static llvm::StringRef GenAnonyRecordName(TagKind tag_kind);
 };
 
 class CPrimaryType : public CType {

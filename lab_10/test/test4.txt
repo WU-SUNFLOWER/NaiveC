@@ -1,0 +1,15 @@
+{
+    struct A {
+        int a, b;
+        int* p;
+        struct {
+            int x, y;
+        } pointer;
+    };
+
+    struct A my_struct;
+    my_struct.pointer.x = 1;
+    my_struct.pointer.y = 2;
+
+    my_struct.pointer.x + my_struct.pointer.y;
+}

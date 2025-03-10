@@ -311,6 +311,20 @@ std::shared_ptr<CType> Sema::SemaTagDecl(
     return record_type;
 }
 
+std::shared_ptr<CType> Sema::SemaTagAnonymousDecl(
+    const std::vector<CRecordType::Member> members, 
+    CType::TagKind tag_kind)
+{
+    llvm::StringRef name = CType::GenAnonyRecordName(tag_kind);
+    
+    auto record_type = std::make_shared<CRecordType>(name, members, tag_kind);
+    if (mode_ == Mode::kNormal) {
+        scope_.AddTagSymbol(name, record_type);
+    }
+
+    return record_type;
+}
+
 std::shared_ptr<CType> Sema::SemaTagAccess(Token &token) {
     auto name = token.GetContent();
     auto symbol = scope_.FindTagSymbol(name);
@@ -356,6 +370,9 @@ std::shared_ptr<AstNode> Sema::SemaPostMemberDotExprNode(
     auto node = std::make_shared<PostMemberDotExpr>();
     node->struct_node_ = struct_node;
     node->target_member_ = *target_member;
+    node->SetCType(target_member->type);
+    node->SetLValue(true);
+    node->SetBoundToken(op_token);
 
     return node;
 }
@@ -400,6 +417,9 @@ std::shared_ptr<AstNode> Sema::SemaPostMemberArrowExprNode(
     auto node = std::make_shared<PostMemberArrowExpr>();
     node->struct_pointer_node_ = struct_pointer_node;
     node->target_member_ = *target_member;
+    node->SetCType(target_member->type);
+    node->SetLValue(true);
+    node->SetBoundToken(op_token);
 
     return node;
 }

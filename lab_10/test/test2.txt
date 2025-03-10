@@ -1,0 +1,26 @@
+// {struct A {int a, b;int* p;} b; struct A* a = &b;b.a = 8964;a->a;}
+{
+    struct A {
+        int a, b;
+        int* p;
+    } b;
+
+    struct A* a = &b;
+
+    b.a = 8964;
+    a->a;
+}
+
+/*
+{
+    struct A {
+        int a, b;
+        int* p;
+    } b;
+
+    struct A* a = &b;
+
+    b.a = 8964;
+    a->a;
+}
+*/

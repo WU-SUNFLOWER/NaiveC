@@ -79,6 +79,9 @@ class Sema {
 
     std::shared_ptr<CType> SemaTagDecl(Token& token, 
                                        const std::vector<CRecordType::Member> members, 
+                                       CType::TagKind tag_kind);
+    std::shared_ptr<CType> SemaTagAnonymousDecl(
+                                       const std::vector<CRecordType::Member> members, 
                                        CType::TagKind tag_kind); 
     std::shared_ptr<CType> SemaTagAccess(Token& token);
 

@@ -1,15 +1,18 @@
 {
-    union A {
+    struct A {
         int x, y;
         int* p;
     } b;
 
-    union A a;
+    struct A a;
 
     a.x = 89;
     b.y = 64;
 
-    union A* c = &a;
+    struct A* c = &a;
     int t = 123;
     c->p = &t;
+
+    *(c->p);
+    a.x;
 }

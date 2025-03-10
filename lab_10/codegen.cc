@@ -58,12 +58,9 @@ llvm::Value* CodeGen::VisitProgram(Program *prog) {
 
     llvm::Value* ret = ir_builder_.CreateRet(result);
 
-    llvm::verifyFunction(*func, &llvm::outs());
+    assert(!llvm::verifyFunction(*func, &llvm::outs()));
+    assert(!llvm::verifyModule(*module_, &llvm::outs()));
 
-    if (!llvm::verifyModule(*module_, &llvm::outs())) {
-        module_->print(llvm::outs(), nullptr);
-    }
-    
     return ret;
 }
 
@@ -629,6 +626,69 @@ llvm::Value* CodeGen::VisitNumberExpr(NumberExpr *factor_expr) {
     return ir_builder_.getInt32(factor_expr->GetNumber());
 }
 
+llvm::Value *CodeGen::VisitPostMemberDotExpr(PostMemberDotExpr* expr) {
+    auto struct_object = expr->struct_node_->Accept(this);
+    auto struct_type = llvm::dyn_cast<CRecordType>(expr->struct_node_->GetCType().get());
+    auto struct_llvm_type = struct_type->Accept(this);
+    auto struct_tag = struct_type->GetTagKind();
+
+    auto& struct_member = expr->target_member_;
+    auto struct_member_llvm_type = struct_member.type->Accept(this);
+
+    auto zero = ir_builder_.getInt32(0);
+    switch (struct_tag) {
+        case CType::TagKind::kStruct: {
+            auto next = ir_builder_.getInt32(struct_member.rank);
+            auto member_addr = ir_builder_.CreateInBoundsGEP(
+                                    struct_llvm_type,
+                                    llvm::dyn_cast<llvm::LoadInst>(struct_object)->getPointerOperand(),
+                                    { zero, next });
+            return ir_builder_.CreateLoad(struct_member_llvm_type, member_addr);
+        }
+        case CType::TagKind::kUnion: {
+            auto member_pointer = ir_builder_.CreateInBoundsGEP(
+                                        struct_llvm_type, 
+                                        llvm::dyn_cast<llvm::LoadInst>(struct_object)->getPointerOperand(),
+                                        { zero, zero });
+            auto vaild_pointer_llvm_type = llvm::PointerType::getUnqual(struct_member_llvm_type);
+            auto cast_pointer = ir_builder_.CreateBitCast(member_pointer, vaild_pointer_llvm_type);
+            return ir_builder_.CreateLoad(struct_member_llvm_type, cast_pointer);   
+        }
+    }
+
+    return nullptr;
+}
+
+llvm::Value *CodeGen::VisitPostMemberArrowExpr(PostMemberArrowExpr* expr) {
+    auto struct_pointer = expr->struct_pointer_node_->Accept(this);
+
+    auto struct_pointer_type = llvm::dyn_cast<CPointerType>(expr->struct_pointer_node_->GetCType().get());
+    auto struct_type = llvm::dyn_cast<CRecordType>(struct_pointer_type->GetBaseType().get());
+
+    auto struct_llvm_type = struct_type->Accept(this);
+    auto struct_tag = struct_type->GetTagKind();
+
+    auto& struct_member = expr->target_member_;
+    auto struct_member_llvm_type = struct_member.type->Accept(this);
+
+    auto zero = ir_builder_.getInt32(0);
+    switch (struct_tag) {
+        case CType::TagKind::kStruct: {
+            auto next = ir_builder_.getInt32(struct_member.rank);
+            auto member_addr = ir_builder_.CreateInBoundsGEP(struct_llvm_type, struct_pointer, { zero, next });
+            return ir_builder_.CreateLoad(struct_member_llvm_type, member_addr);
+        }
+        case CType::TagKind::kUnion: {
+            auto member_pointer = ir_builder_.CreateInBoundsGEP(struct_llvm_type, struct_pointer, { zero, zero });
+            auto vaild_pointer_llvm_type = llvm::PointerType::getUnqual(struct_member_llvm_type);
+            auto cast_pointer = ir_builder_.CreateBitCast(member_pointer, vaild_pointer_llvm_type);
+            return ir_builder_.CreateLoad(struct_member_llvm_type, cast_pointer);
+        }
+    }
+
+    return nullptr;
+}
+
 llvm::Type *CodeGen::VisitPrimaryType(CPrimaryType* ctype) {
     if (ctype->GetKind() == CType::TypeKind::kInt) {
         return ir_builder_.getInt32Ty();
@@ -650,10 +710,15 @@ llvm::Type* CodeGen::VisitArrayType(CArrayType* ctype) {
 }
 
 llvm::Type* CodeGen::VisitRecordType(CRecordType* ctype) {
-    auto struct_type = llvm::StructType::get(context_);
-    struct_type->setName(ctype->GetName());
+    auto struct_type_name = ctype->GetName();
+    auto struct_type = llvm::StructType::getTypeByName(context_, struct_type_name);
+    if (struct_type) {
+        return struct_type;
+    }
 
-    CType::TagKind tag_kind = ctype->GetTagKind();
+    struct_type = llvm::StructType::create(context_, struct_type_name);
+
+    auto tag_kind = ctype->GetTagKind();
     switch (tag_kind) {
         case CType::TagKind::kStruct: {
             llvm::SmallVector<llvm::Type*> member_type_vec;
@@ -676,12 +741,4 @@ llvm::Type* CodeGen::VisitRecordType(CRecordType* ctype) {
     }
 
     return struct_type;
-}
-
-llvm::Value *CodeGen::VisitPostMemberDotExpr(PostMemberDotExpr *) {
-    return nullptr;
-}
-
-llvm::Value *CodeGen::VisitPostMemberArrowExpr(PostMemberArrowExpr *) {
-    return nullptr;
 }

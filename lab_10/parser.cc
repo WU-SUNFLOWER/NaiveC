@@ -96,8 +96,14 @@ std::shared_ptr<CType> Parser::ParseStructOrUnionSpec() {
     }
     Advance();  // Consume `struct` or `union` keyword.
 
-    Token tag_symbol = token_;
-    Consume(TokenType::kIdentifier);
+    Token tag_symbol;
+    bool is_anonymous_struct = token_.GetType() != TokenType::kIdentifier;
+
+    if (!is_anonymous_struct) {
+        tag_symbol = token_;
+        Consume(TokenType::kIdentifier);
+    }
+
 
     // Case 1: user want to define new struct or union.
     // struct A {
@@ -122,7 +128,11 @@ std::shared_ptr<CType> Parser::ParseStructOrUnionSpec() {
         sema_.ExitScope();
         Consume(TokenType::kRBrace);
 
-        return sema_.SemaTagDecl(tag_symbol, members, tag_kind);
+        if (is_anonymous_struct) {
+            return sema_.SemaTagAnonymousDecl(members, tag_kind);
+        } else {
+            return sema_.SemaTagDecl(tag_symbol, members, tag_kind);
+        }
     }
     // Case 2: user want to use defined struct or union.
     else {
