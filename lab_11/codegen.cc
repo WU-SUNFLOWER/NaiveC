@@ -786,10 +786,24 @@ llvm::Value *CodeGen::VisitPostFuncCallExpr(PostFuncCallExpr *) {
     return nullptr;
 }
 
-llvm::Value *CodeGen::VisitReturnStmt(ReturnStmt *) {
+llvm::Value *CodeGen::VisitReturnStmt(ReturnStmt* ret_stmt) {
+    auto ret_value_node = ret_stmt->value_node_;
+    if (ret_value_node) {
+        auto ret_value = ret_value_node->Accept(this);
+        return ir_builder_.CreateRet(ret_value);
+    } else {
+        return ir_builder_.CreateRetVoid();
+    }
     return nullptr;
 }
 
-llvm::Type *CodeGen::VisitFuncType(CFuncType *) {
-    return nullptr;
+llvm::Type *CodeGen::VisitFuncType(CFuncType* func_type) {
+    llvm::Type* ret_llvm_type = func_type->GetRetType()->Accept(this);
+
+    llvm::SmallVector<llvm::Type*> param_llvm_types;
+    for (const auto& param : func_type->GetParams()) {
+        param_llvm_types.push_back(param.type->Accept(this));
+    }
+
+    return llvm::FunctionType::get(ret_llvm_type, param_llvm_types, false);
 }
