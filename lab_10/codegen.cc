@@ -536,7 +536,14 @@ llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
     llvm::Type* ir_type = decl_node->GetCType()->Accept(this);
     const llvm::StringRef& variable_name = decl_node->GetVariableName();
 
-    llvm::Value* variable_addr = ir_builder_.CreateAlloca(ir_type, nullptr, variable_name);
+    llvm::IRBuilder tmp_ir_builder(
+                            &GetCurrentFunc()->getEntryBlock(), 
+                            GetCurrentFunc()->getEntryBlock().begin());
+    // NOTE: 
+    // We generate `alloca` instruction for local variable in entry basic block, 
+    // which is the start of a function.
+    // This is to help LLVM to generate more optimized machine code.
+    llvm::Value* variable_addr = tmp_ir_builder.CreateAlloca(ir_type, nullptr, variable_name);
     variable_map_.insert({ variable_name, { variable_addr, ir_type } });
 
     int nr_init_values = decl_node->init_values_.size();
@@ -546,21 +553,63 @@ llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
             auto init_value = init_value_struct->init_node->Accept(this);
             ir_builder_.CreateStore(init_value, variable_addr);            
         }
-        else if (llvm::ArrayType* arr_type = llvm::dyn_cast<llvm::ArrayType>(ir_type)) {
+        else if (llvm::ArrayType* arr_llvm_type = llvm::dyn_cast<llvm::ArrayType>(ir_type)) {
             for (const auto& init_value_struct : decl_node->init_values_) {
-                // Create llvm-style index list.
+                // Create llvm-style index list, by splicing `init_values_`list of `decl_node`.
                 llvm::SmallVector<llvm::Value*> llvm_index_list;
                 for (auto index : init_value_struct->index_list) {
                     llvm_index_list.push_back(ir_builder_.getInt32(index));
                 }
                 // Create code to compute the address and value of this element.
                 llvm::Value* element_addr = ir_builder_.CreateInBoundsGEP(
-                                                            arr_type->getElementType(),
+                                                            arr_llvm_type->getElementType(),
                                                             variable_addr,
                                                             llvm_index_list);
                 llvm::Value* element_value = init_value_struct->init_node->Accept(this);
                 // Create store code.
                 ir_builder_.CreateStore(element_value, element_addr);
+            }
+        }
+        else if (llvm::StructType* struct_llvm_type = llvm::dyn_cast<llvm::StructType>(ir_type)) {
+            auto record_type = llvm::dyn_cast<CRecordType>(decl_node->GetCType().get());
+            auto record_tag_kind = record_type->GetTagKind();
+            auto zero = ir_builder_.getInt32(0);
+            switch (record_tag_kind) {
+                case CType::TagKind::kStruct: {
+                    for (const auto& init_value_struct : decl_node->init_values_) {
+                        llvm::SmallVector<llvm::Value*> llvm_index_list = { zero };
+                        for (auto index : init_value_struct->index_list) {
+                            llvm_index_list.push_back(ir_builder_.getInt32(index));
+                        }
+
+                        llvm::Value* member_addr = ir_builder_.CreateInBoundsGEP(
+                                                                    struct_llvm_type,
+                                                                    variable_addr,
+                                                                    llvm_index_list);
+                        llvm::Value* member_value = init_value_struct->init_node->Accept(this);
+
+                        ir_builder_.CreateStore(member_value, member_addr);
+                    }
+                    break;
+                }
+                case CType::TagKind::kUnion: {
+                    auto init_value_struct = decl_node->init_values_[0];
+                    assert(init_value_struct->index_list.size() == 1);
+
+                    auto member_type = init_value_struct->decl_type->Accept(this);
+                    auto member_value = init_value_struct->init_node->Accept(this);
+                    auto member_pointer = ir_builder_.CreateInBoundsGEP(
+                                                            struct_llvm_type, 
+                                                            variable_addr, 
+                                                            { zero, zero });
+                    auto vaild_pointer_llvm_type = llvm::PointerType::getUnqual(member_type);
+                    auto cast_pointer = ir_builder_.CreateBitCast(member_pointer, vaild_pointer_llvm_type);
+                    
+                    ir_builder_.CreateStore(member_value, cast_pointer);
+                    break;
+                }
+                default:
+                    assert(0);
             }
         }
         else {
@@ -628,8 +677,11 @@ llvm::Value* CodeGen::VisitNumberExpr(NumberExpr *factor_expr) {
 
 llvm::Value *CodeGen::VisitPostMemberDotExpr(PostMemberDotExpr* expr) {
     auto struct_object = expr->struct_node_->Accept(this);
+    auto struct_pointer = llvm::dyn_cast<llvm::LoadInst>(struct_object)->getPointerOperand();
+    
     auto struct_type = llvm::dyn_cast<CRecordType>(expr->struct_node_->GetCType().get());
     auto struct_llvm_type = struct_type->Accept(this);
+    
     auto struct_tag = struct_type->GetTagKind();
 
     auto& struct_member = expr->target_member_;
@@ -640,16 +692,16 @@ llvm::Value *CodeGen::VisitPostMemberDotExpr(PostMemberDotExpr* expr) {
         case CType::TagKind::kStruct: {
             auto next = ir_builder_.getInt32(struct_member.rank);
             auto member_addr = ir_builder_.CreateInBoundsGEP(
-                                    struct_llvm_type,
-                                    llvm::dyn_cast<llvm::LoadInst>(struct_object)->getPointerOperand(),
-                                    { zero, next });
+                                                struct_llvm_type,
+                                                struct_pointer, 
+                                                { zero, next });
             return ir_builder_.CreateLoad(struct_member_llvm_type, member_addr);
         }
         case CType::TagKind::kUnion: {
             auto member_pointer = ir_builder_.CreateInBoundsGEP(
-                                        struct_llvm_type, 
-                                        llvm::dyn_cast<llvm::LoadInst>(struct_object)->getPointerOperand(),
-                                        { zero, zero });
+                                                    struct_llvm_type, 
+                                                    struct_pointer, 
+                                                    { zero, zero });
             auto vaild_pointer_llvm_type = llvm::PointerType::getUnqual(struct_member_llvm_type);
             auto cast_pointer = ir_builder_.CreateBitCast(member_pointer, vaild_pointer_llvm_type);
             return ir_builder_.CreateLoad(struct_member_llvm_type, cast_pointer);   

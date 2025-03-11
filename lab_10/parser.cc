@@ -104,7 +104,6 @@ std::shared_ptr<CType> Parser::ParseStructOrUnionSpec() {
         Consume(TokenType::kIdentifier);
     }
 
-
     // Case 1: user want to define new struct or union.
     // struct A {
     //     int a, b;
@@ -264,28 +263,73 @@ bool Parser::ParseInitializer(
 
     if (token_.GetType() == TokenType::kLBrace) {
         Consume(TokenType::kLBrace);
-        {
-            if (decl_type->GetKind() == CType::TypeKind::kArray) {
+
+        auto type_kind = decl_type->GetKind();
+        switch (type_kind) {
+            case CType::TypeKind::kArray: {
                 CArrayType* array_type = llvm::dyn_cast<CArrayType>(decl_type.get());
                 int element_count = array_type->GetElementCount();
-
                 for (int i = 0; i < element_count; ++i) {
                     index_list.push_back(i);
-                    bool end = ParseInitializer(init_values, array_type->GetElementType(), index_list, true);
+                    bool end = ParseInitializer(init_values, 
+                                                array_type->GetElementType(), 
+                                                index_list, 
+                                                true);
                     index_list.pop_back();
-
                     if (end) {
                         break;
                     }
-
                     if (i != element_count - 1 && token_.GetType() != TokenType::kRBrace) {
                         Consume(TokenType::kComma);
                     }
                 }
+                break;
             }
+            case CType::TypeKind::kRecord: {
+                CRecordType* record_type = llvm::dyn_cast<CRecordType>(decl_type.get());
+                const auto& members = record_type->GetMembers();
+                int member_count = members.size();
+
+                switch (record_type->GetTagKind()) {
+                    case CType::TagKind::kStruct: {
+                        for (int i = 0; i < member_count; ++i) {
+                            index_list.push_back(i);
+                            bool end = ParseInitializer(init_values, 
+                                                        members[i].type, 
+                                                        index_list, 
+                                                        true);
+                            index_list.pop_back();
+                            if (end) {
+                                break;
+                            }
+                            if (i != member_count - 1 && token_.GetType() != TokenType::kRBrace) {
+                                Consume(TokenType::kComma);
+                            }
+                        }                       
+                        break;
+                    }
+                    case CType::TagKind::kUnion: {
+                        if (member_count > 0) {
+                            index_list.push_back(0);
+                            ParseInitializer(init_values, members[0].type, index_list, true);
+                            index_list.pop_back();
+                        }
+                        break;
+                    }
+                    default: {
+                        // TO DO: throw error for invaild tag kind.
+                    }
+                }
+                break;
+            }
+            default: {
+                // TO DO: throw error for invalid type kind.
+            }   
         }
+
         Consume(TokenType::kRBrace);
-    } else {
+    }
+    else {
         Token tmp = token_;
         auto init_node = ParseAssignExpr();
         auto init_value_struct = sema_.SemaDeclInitValueStruct(decl_type, init_node, index_list, tmp);

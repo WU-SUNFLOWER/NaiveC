@@ -7,7 +7,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/bin/NaiveC",
             "args": [
-                "test/test4.txt"
+                "test/test6.txt"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
