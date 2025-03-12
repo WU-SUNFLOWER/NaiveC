@@ -219,7 +219,7 @@ class CFuncType : public CType {
         return params_;
     }
 
-    const llvm::StringRef& GetFuncName() const {
+    llvm::StringRef GetFuncName() const {
         return func_name_;
     }
 

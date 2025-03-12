@@ -27,6 +27,8 @@ Lexer::Lexer(llvm::SourceMgr& mgr, DiagEngine& diag_engine)
     line_head_ = wrapped_buf.begin();
     buf_ = wrapped_buf.begin();
     buf_end_ = wrapped_buf.end();
+
+    file_name_ = mgr_.getMemoryBuffer(id)->getBufferIdentifier();
 }
 
 bool Lexer::BufferStartWith(const char *target) {

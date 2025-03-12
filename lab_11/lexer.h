@@ -159,8 +159,14 @@ class Lexer {
     llvm::SourceMgr& mgr_;
     DiagEngine& diag_engine_;
 
+    llvm::StringRef file_name_;
+
  public:
     Lexer(llvm::SourceMgr& mgr, DiagEngine& diag_engine);
+
+    llvm::StringRef GetFileName() const {
+        return file_name_;
+    }
 
     bool BufferStartWith(const char* target);
 

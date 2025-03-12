@@ -20,7 +20,7 @@
 #include "sema.h"
 #include "diag-engine.h"
 
-//#define JIT_TEST
+#define JIT_TEST
 
 int main(int argc, char *argv[]) {
 #ifdef JIT_TEST
@@ -51,13 +51,11 @@ int main(int argc, char *argv[]) {
     Sema sema(diagEngine);
     Parser parser(lex, sema);
     auto program = parser.ParseProgram();
-    PrintVisitor visitor(program);
-    /*
+    // PrintVisitor visitor(program);
     CodeGen codegen(program);
 
     auto &module = codegen.GetModule();
     module->print(llvm::outs(), nullptr);    
-    */
 
 #ifdef JIT_TEST
     {

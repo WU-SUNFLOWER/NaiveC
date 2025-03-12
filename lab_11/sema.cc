@@ -442,12 +442,40 @@ std::shared_ptr<AstNode> Sema::SemaPostFuncCallExprNode(
     std::shared_ptr<AstNode> func_node, 
     const std::vector<std::shared_ptr<AstNode>> &arg_nodes)
 {
+    const Token& tok = func_node->GetBoundToken();
+    
+    // Check 1: We can only call a function.
+    if (func_node->GetCType()->GetKind() != CType::TypeKind::kFunc) {
+        diag_engine_.Report(llvm::SMLoc::getFromPointer(tok.GetRawContentPtr()),
+                            Diag::kErrExpected,
+                            "function");
+    }
+
+    auto func_type = llvm::dyn_cast<CFuncType>(func_node->GetCType().get());
+
+    // Check 2: Whether user has overpaid or underpaid parameters. 
+    const auto& func_params = func_type->GetParams();
+    if (arg_nodes.size() != func_params.size()) {
+        diag_engine_.Report(llvm::SMLoc::getFromPointer(tok.GetRawContentPtr()),
+                            Diag::kErrMiss,
+                            "argument count not match");
+    }
+
+    // Check 3: Whether user provide argument with mismatched type.
+    for (int i = 0; i < func_params.size(); ++i) {
+        if (arg_nodes[i]->GetCType()->GetKind() != func_params[i].type->GetKind()) {
+            const Token& tok = arg_nodes[i]->GetBoundToken();
+            diag_engine_.Report(llvm::SMLoc::getFromPointer(tok.GetRawContentPtr()),
+                                Diag::kErrExpected,
+                                "argument type");
+        }
+    }
+
     auto func_call_node = std::make_shared<PostFuncCallExpr>();
     func_call_node->func_node_ = func_node;
     func_call_node->arg_nodes_ = arg_nodes;
     func_call_node->SetBoundToken(func_node->GetBoundToken());
 
-    auto func_type = llvm::dyn_cast<CFuncType>(func_node->GetCType().get());
     func_call_node->SetCType(func_type->GetRetType());
 
     return func_call_node;

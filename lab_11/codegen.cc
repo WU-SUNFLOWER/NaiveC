@@ -5,11 +5,45 @@
 #include "codegen.h"
 
 #include <memory>
+#include <cassert>
 
 #include "llvm/IR/Verifier.h"
 
+void CodeGen::AddLocalVariable(llvm::StringRef name, llvm::Value *addr, llvm::Type *llvm_type) {
+    assert(local_variable_map_.size() > 0);
+    local_variable_map_.back().insert({ name, { addr, llvm_type } });
+}
+
+void CodeGen::AddGlobalVariable(llvm::StringRef name, llvm::Value *addr, llvm::Type *llvm_type) {
+    global_variable_map_.insert({ name, { addr, llvm_type } });
+}
+
+std::pair<llvm::Value *, llvm::Type *> CodeGen::GetVariableByName(llvm::StringRef name) {
+    for (auto iter = local_variable_map_.rbegin(); iter != local_variable_map_.rend(); ++iter) {
+        const auto& map = *iter;
+        if (map.contains(name)) {
+            return map.at(name);
+        }
+    }
+
+    assert(global_variable_map_.contains(name));
+    return global_variable_map_.at(name);
+}
+
+void CodeGen::PushScope() {
+    local_variable_map_.emplace_back();
+}
+
+void CodeGen::PopScope() {
+    local_variable_map_.pop_back();
+}
+
+void CodeGen::ClearVariableScope() {
+    local_variable_map_.clear();
+}
+
 CodeGen::CodeGen(std::shared_ptr<Program> prog) {
-    module_ = std::make_unique<llvm::Module>("Expr Module", context_);
+    module_ = std::make_unique<llvm::Module>(prog->file_name_, context_);
     VisitProgram(prog.get());
 }
 
@@ -79,10 +113,10 @@ llvm::Value *CodeGen::VisitIfStmt(IfStmt* if_stmt) {
 
 llvm::Value *CodeGen::VisitForStmt(ForStmt* for_stmt) {
     auto init_block = llvm::BasicBlock::Create(context_, "for.init", GetCurrentFunc());
-    auto cond_block = llvm::BasicBlock::Create(context_, "for.cond", GetCurrentFunc());
-    auto inc_block = llvm::BasicBlock::Create(context_, "for.inc", GetCurrentFunc());
-    auto body_block = llvm::BasicBlock::Create(context_, "for.body", GetCurrentFunc());
-    auto final_block = llvm::BasicBlock::Create(context_, "for.final", GetCurrentFunc());
+    auto cond_block = llvm::BasicBlock::Create(context_, "for.cond");
+    auto inc_block = llvm::BasicBlock::Create(context_, "for.inc");
+    auto body_block = llvm::BasicBlock::Create(context_, "for.body");
+    auto final_block = llvm::BasicBlock::Create(context_, "for.final");
 
     // Don't forget to bind the statement node with its final block, and inc block.
     break_block_map_.insert({ for_stmt, final_block });
@@ -97,6 +131,7 @@ llvm::Value *CodeGen::VisitForStmt(ForStmt* for_stmt) {
     ir_builder_.CreateBr(cond_block);
 
     // Build cond block.
+    cond_block->insertInto(GetCurrentFunc());
     ir_builder_.SetInsertPoint(cond_block);
     if (for_stmt->cond_node_) {
         llvm::Value* cond_result = for_stmt->cond_node_->Accept(this);
@@ -107,6 +142,7 @@ llvm::Value *CodeGen::VisitForStmt(ForStmt* for_stmt) {
     }
 
     // Build body block.
+    body_block->insertInto(GetCurrentFunc());
     ir_builder_.SetInsertPoint(body_block);
     if (for_stmt->body_node_) {
         for_stmt->body_node_->Accept(this);
@@ -114,6 +150,7 @@ llvm::Value *CodeGen::VisitForStmt(ForStmt* for_stmt) {
     ir_builder_.CreateBr(inc_block);
 
     // Build inc block.
+    inc_block->insertInto(GetCurrentFunc());
     ir_builder_.SetInsertPoint(inc_block);
     if (for_stmt->inc_node_) {
         for_stmt->inc_node_->Accept(this);
@@ -121,6 +158,7 @@ llvm::Value *CodeGen::VisitForStmt(ForStmt* for_stmt) {
     ir_builder_.CreateBr(cond_block);
 
     // Let our code generator to generate later code after for statement in final block...
+    final_block->insertInto(GetCurrentFunc());
     ir_builder_.SetInsertPoint(final_block);
 
     // Don't forget to unbind the statement node with its final block, and inc block.
@@ -477,21 +515,121 @@ llvm::Value *CodeGen::VisitTernaryExpr(TernaryExpr* expr) {
 }
 
 llvm::Value* CodeGen::VisitVariableAccessExpr(VariableAccessExpr* access_node) {
-    const llvm::StringRef& variable_name = access_node->GetVariableName();
-    auto& variable_info = variable_map_[variable_name];
+    auto variable_name = access_node->GetVariableName();
+    auto [variable_addr, variable_llvm_type] = GetVariableByName(variable_name);
 
-    llvm::Value* variable_addr = variable_info.first;
-    llvm::Type* variable_ir_type = variable_info.second;
+    if (variable_llvm_type->isFunctionTy()) {
+        return variable_addr;
+    } else {
+        return ir_builder_.CreateLoad(variable_llvm_type, variable_addr, variable_name);
+    }
 
-    auto ret = ir_builder_.CreateLoad(variable_ir_type, variable_addr, variable_name);
-
-    return ret;
+    return nullptr;
 }
 
-llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
-    llvm::Type* ir_type = decl_node->GetCType()->Accept(this);
-    const llvm::StringRef& variable_name = decl_node->GetVariableName();
+std::shared_ptr<VariableDecl::InitValue> CodeGen::GetInitValueStructByIndexList(
+    const VariableDecl* decl_node, 
+    const std::vector<int> &target_index_list) 
+{
+    const auto& init_values = decl_node->init_values_;
+    for (const auto& init_value_struct : init_values) {
+        const auto& cur_index_list = init_value_struct->index_list;
+        if (cur_index_list.size() != target_index_list.size()) {
+            continue;
+        } 
+        bool find = true;
+        for (int i = 0; i < target_index_list.size(); ++i) {
+            if (cur_index_list[i] != target_index_list[i]) {
+                find = false;
+                break;
+            } 
+        }
+        if (find) {
+            return init_value_struct;
+        }
+    }
 
+    return nullptr;
+}
+
+llvm::Constant *CodeGen::GetInitialValueForGlobalVariable(
+    const VariableDecl* decl_node, 
+    llvm::Type *type, 
+    std::vector<int>& index_list) 
+{
+    if (type->isIntegerTy()) {
+        auto init_value_struct = GetInitValueStructByIndexList(decl_node, index_list);
+        if (init_value_struct) {
+            auto init_value = init_value_struct->init_node->Accept(this);
+            return llvm::dyn_cast<llvm::Constant>(init_value);
+        }
+        return ir_builder_.getInt32(0);
+    }
+    else if (type->isPointerTy()) {
+        auto pointer_type = llvm::dyn_cast<llvm::PointerType>(type);
+        return llvm::ConstantPointerNull::get(pointer_type);
+    }
+    else if (type->isStructTy()) {
+        auto struct_type = llvm::dyn_cast<llvm::StructType>(type);
+        auto element_count = struct_type->getStructNumElements();
+        llvm::SmallVector<llvm::Constant*> element_value_vec;
+        for (auto i = 0; i < element_count; ++i) {
+            auto element_type = struct_type->getStructElementType(i);
+            index_list.push_back(i);
+            auto element_value = GetInitialValueForGlobalVariable(decl_node, element_type, index_list);
+            index_list.pop_back();
+            element_value_vec.push_back(element_value);
+        }
+        return llvm::ConstantStruct::get(struct_type, element_value_vec);
+    }
+    else if (type->isArrayTy()) {
+        auto array_type = llvm::dyn_cast<llvm::ArrayType>(type);
+        auto element_type = array_type->getArrayElementType();
+        auto element_count = array_type->getArrayNumElements();
+        llvm::SmallVector<llvm::Constant*> element_value_vec;
+        for (auto i = 0; i < element_count; ++i) {
+            index_list.push_back(i);
+            auto element_value = GetInitialValueForGlobalVariable(decl_node, element_type, index_list);
+            index_list.pop_back();
+            element_value_vec.push_back(element_value);
+        }
+        return llvm::ConstantArray::get(array_type, element_value_vec);
+    }
+    else {
+        assert(0);
+    }
+
+    return nullptr;
+}
+
+llvm::Value* CodeGen::VisitGlobalVariableDecl(VariableDecl* decl_node) {
+    auto variable_type = decl_node->GetCType();
+    auto variable_llvm_type = variable_type->Accept(this);
+    auto variable_name = decl_node->GetVariableName();
+    auto variable_addr = new llvm::GlobalVariable(
+                                            *module_,
+                                            variable_llvm_type,
+                                            false, 
+                                            llvm::GlobalValue::ExternalLinkage,
+                                            nullptr,
+                                            variable_name);
+
+    variable_addr->setAlignment(llvm::Align(variable_type->GetAlign()));
+
+    std::vector<int> index_list = { 0 };
+    variable_addr->setInitializer(GetInitialValueForGlobalVariable(decl_node, variable_llvm_type, index_list));
+
+    AddGlobalVariable(variable_name, variable_addr, variable_llvm_type);
+
+    return variable_addr;
+}
+
+
+llvm::Value *CodeGen::VisitLocalVariableDecl(VariableDecl* decl_node) {
+    auto variable_type = decl_node->GetCType();
+    auto variable_llvm_type = decl_node->GetCType()->Accept(this);
+    auto variable_name = decl_node->GetVariableName();    
+    
     llvm::IRBuilder tmp_ir_builder(
                             &GetCurrentFunc()->getEntryBlock(), 
                             GetCurrentFunc()->getEntryBlock().begin());
@@ -499,17 +637,19 @@ llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
     // We generate `alloca` instruction for local variable in entry basic block, 
     // which is the start of a function.
     // This is to help LLVM to generate more optimized machine code.
-    llvm::Value* variable_addr = tmp_ir_builder.CreateAlloca(ir_type, nullptr, variable_name);
-    variable_map_.insert({ variable_name, { variable_addr, ir_type } });
+    auto variable_addr = tmp_ir_builder.CreateAlloca(variable_llvm_type, nullptr, variable_name);
+    variable_addr->setAlignment(llvm::Align(variable_type->GetAlign()));
+
+    AddLocalVariable(variable_name, variable_addr, variable_llvm_type);
 
     int nr_init_values = decl_node->init_values_.size();
     if (nr_init_values > 0) {
         if (nr_init_values == 1) {
             auto init_value_struct = decl_node->init_values_[0];
             auto init_value = init_value_struct->init_node->Accept(this);
-            ir_builder_.CreateStore(init_value, variable_addr);            
+            ir_builder_.CreateStore(init_value, variable_addr);
         }
-        else if (llvm::ArrayType* arr_llvm_type = llvm::dyn_cast<llvm::ArrayType>(ir_type)) {
+        else if (llvm::ArrayType* arr_llvm_type = llvm::dyn_cast<llvm::ArrayType>(variable_llvm_type)) {
             for (const auto& init_value_struct : decl_node->init_values_) {
                 // Create llvm-style index list, by splicing `init_values_`list of `decl_node`.
                 llvm::SmallVector<llvm::Value*> llvm_index_list;
@@ -518,7 +658,7 @@ llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
                 }
                 // Create code to compute the address and value of this element.
                 llvm::Value* element_addr = ir_builder_.CreateInBoundsGEP(
-                                                            arr_llvm_type->getElementType(),
+                                                            arr_llvm_type,
                                                             variable_addr,
                                                             llvm_index_list);
                 llvm::Value* element_value = init_value_struct->init_node->Accept(this);
@@ -526,14 +666,13 @@ llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
                 ir_builder_.CreateStore(element_value, element_addr);
             }
         }
-        else if (llvm::StructType* struct_llvm_type = llvm::dyn_cast<llvm::StructType>(ir_type)) {
-            auto record_type = llvm::dyn_cast<CRecordType>(decl_node->GetCType().get());
+        else if (llvm::StructType* struct_llvm_type = llvm::dyn_cast<llvm::StructType>(variable_llvm_type)) {
+            auto record_type = llvm::dyn_cast<CRecordType>(variable_type.get());
             auto record_tag_kind = record_type->GetTagKind();
-            auto zero = ir_builder_.getInt32(0);
             switch (record_tag_kind) {
                 case CType::TagKind::kStruct: {
                     for (const auto& init_value_struct : decl_node->init_values_) {
-                        llvm::SmallVector<llvm::Value*> llvm_index_list = { zero };
+                        llvm::SmallVector<llvm::Value*> llvm_index_list;
                         for (auto index : init_value_struct->index_list) {
                             llvm_index_list.push_back(ir_builder_.getInt32(index));
                         }
@@ -550,14 +689,21 @@ llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
                 }
                 case CType::TagKind::kUnion: {
                     auto init_value_struct = decl_node->init_values_[0];
-                    assert(init_value_struct->index_list.size() == 1);
+                    assert(decl_node->init_values_.size() == 1);
+                    
+                    llvm::SmallVector<llvm::Value*> llvm_index_list;
+
+                    assert(init_value_struct->index_list.size() == 2);
+                    for (auto index : init_value_struct->index_list) {
+                        llvm_index_list.push_back(ir_builder_.getInt32(index));
+                    }
 
                     auto member_type = init_value_struct->decl_type->Accept(this);
                     auto member_value = init_value_struct->init_node->Accept(this);
                     auto member_pointer = ir_builder_.CreateInBoundsGEP(
                                                             struct_llvm_type, 
                                                             variable_addr, 
-                                                            { zero, zero });
+                                                            llvm_index_list);
                     auto vaild_pointer_llvm_type = llvm::PointerType::getUnqual(member_type);
                     auto cast_pointer = ir_builder_.CreateBitCast(member_pointer, vaild_pointer_llvm_type);
                     
@@ -574,6 +720,12 @@ llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
     }
 
     return variable_addr;
+}
+
+llvm::Value* CodeGen::VisitVariableDecl(VariableDecl* decl_node) {
+    return decl_node->is_global_ ? 
+                VisitGlobalVariableDecl(decl_node) : 
+                VisitLocalVariableDecl(decl_node);
 }
 
 llvm::Value *CodeGen::VisitPostIncExpr(PostIncExpr* expr) {
@@ -752,38 +904,72 @@ llvm::Type* CodeGen::VisitRecordType(CRecordType* ctype) {
 }
 
 llvm::Value *CodeGen::VisitFuncDecl(FuncDecl* func_decl) {
-    auto ret_llvm_type = func_decl->GetCType()->Accept(this);
+    ClearVariableScope();
 
-    auto func_type = llvm::FunctionType::get(ir_builder_.getInt32Ty(), false);
-    auto func = llvm::Function::Create(func_type, llvm::GlobalValue::ExternalLinkage, "main", module_.get());
+    auto func_type = llvm::dyn_cast<CFuncType>(func_decl->GetCType().get());
+    auto func_llvm_type = llvm::dyn_cast<llvm::FunctionType>(func_type->Accept(this));
+    auto func_name = func_type->GetFuncName();
 
-    SetCurrentFunc(func);  // Don't forget to record current function!
+    // 1.Create LLVM function instance.
+    auto func = llvm::Function::Create(func_llvm_type, 
+                                       llvm::GlobalValue::ExternalLinkage, 
+                                       func_name,
+                                       module_.get());
+    // 2. Save function instance to global variable map.
+    AddGlobalVariable(func_name, func, func_llvm_type);
 
-    llvm::BasicBlock* entry_block = llvm::BasicBlock::Create(context_, "entry", func);
-    ir_builder_.SetInsertPoint(entry_block);
-
-    llvm::Value* result = func_decl->block_stmt_->Accept(this);
-
-    llvm::Type* result_type = result->getType();
-    if (result_type->isIntegerTy()) {
-        auto bit_width = llvm::cast<llvm::IntegerType>(result_type)->getBitWidth();
-        if (bit_width < 32) {
-            result = ir_builder_.CreateSExt(result, ir_builder_.getInt32Ty());
-        } else if (bit_width > 32) {
-            result = ir_builder_.CreateTrunc(result, ir_builder_.getInt32Ty());
-        }
+    // 3. Process function's parameters.
+    const auto& params = func_type->GetParams();
+    int i = 0;
+    for (auto& arg : func->args()) {
+        arg.setName(params[i++].name);
     }
 
-    llvm::Value* ret = ir_builder_.CreateRet(result);
+    // 4.1 Does the function have valid body?
+    //     If not, return the object directly.
+    if (func_decl->block_stmt_ == nullptr) {
+        return func;
+    }
+
+    // 4.2 If yes, create the entry block for the function.
+    //     and going to generate its inner code.
+    auto entry_block = llvm::BasicBlock::Create(context_, "entry", func);
+    ir_builder_.SetInsertPoint(entry_block);
+    SetCurrentFunc(func);
+
+    PushScope();
+    {
+        // 5. Alloc space for the arguments of the function.
+        for (auto& arg : func->args()) {
+            auto arg_addr = ir_builder_.CreateAlloca(arg.getType(), nullptr, arg.getName());
+            arg_addr->setAlignment(arg.getParamAlign().valueOrOne());
+            ir_builder_.CreateStore(&arg, arg_addr);
+
+            AddLocalVariable(arg.getName(), arg_addr, arg.getType());
+        }
+
+        // 6.Generate inner code for function's block statement.
+        func_decl->block_stmt_->Accept(this);        
+    }
+    PopScope();
 
     assert(!llvm::verifyFunction(*func, &llvm::outs()));
     assert(!llvm::verifyModule(*module_, &llvm::outs()));
 
-    return ret;
+    return func;
 }
 
-llvm::Value *CodeGen::VisitPostFuncCallExpr(PostFuncCallExpr *) {
-    return nullptr;
+llvm::Value *CodeGen::VisitPostFuncCallExpr(PostFuncCallExpr* func_call_expr) {
+    auto func_node = func_call_expr->func_node_;
+    auto func_llvm_inst = llvm::dyn_cast<llvm::Function>(func_node->Accept(this));
+    auto func_llvm_type = llvm::dyn_cast<llvm::FunctionType>(func_node->GetCType()->Accept(this));
+
+    llvm::SmallVector<llvm::Value*> args;
+    for (const auto& arg_node : func_call_expr->arg_nodes_) {
+        args.push_back(arg_node->Accept(this));
+    }
+
+    return ir_builder_.CreateCall(func_llvm_type, func_llvm_inst, args);
 }
 
 llvm::Value *CodeGen::VisitReturnStmt(ReturnStmt* ret_stmt) {

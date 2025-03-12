@@ -23,8 +23,6 @@ class CodeGen : public Visitor, public TypeVisitor {
 
     std::unique_ptr<llvm::Module> module_ { nullptr };
 
-    llvm::StringMap<std::pair<llvm::Value*, llvm::Type*>> variable_map_;
-
     llvm::Function* cur_func_ { nullptr };
 
     void SetCurrentFunc(llvm::Function* func) {
@@ -37,6 +35,18 @@ class CodeGen : public Visitor, public TypeVisitor {
 
     llvm::DenseMap<AstNode*, llvm::BasicBlock*> break_block_map_;
     llvm::DenseMap<AstNode*, llvm::BasicBlock*> continue_block_map_;
+
+ private:
+    llvm::StringMap<std::pair<llvm::Value*, llvm::Type*>> global_variable_map_;
+    llvm::SmallVector<llvm::StringMap<std::pair<llvm::Value*, llvm::Type*>>> local_variable_map_;    
+
+    void AddLocalVariable(llvm::StringRef name, llvm::Value* addr, llvm::Type* llvm_type);
+    void AddGlobalVariable(llvm::StringRef name, llvm::Value* addr, llvm::Type* llvm_type);
+    std::pair<llvm::Value*, llvm::Type*> GetVariableByName(llvm::StringRef name);
+
+    void PushScope();
+    void PopScope();
+    void ClearVariableScope();
 
  public:
     explicit CodeGen(std::shared_ptr<Program> prog);
@@ -61,6 +71,19 @@ class CodeGen : public Visitor, public TypeVisitor {
     llvm::Value* VisitNumberExpr(NumberExpr*) override;
     llvm::Value* VisitVariableAccessExpr(VariableAccessExpr*) override;
     llvm::Value* VisitVariableDecl(VariableDecl*) override;
+
+ private:
+    std::shared_ptr<VariableDecl::InitValue> GetInitValueStructByIndexList(
+                                                        const VariableDecl* decl_node, 
+                                                        const std::vector<int>& index);
+    llvm::Constant* GetInitialValueForGlobalVariable(
+                                    const VariableDecl* decl_node, 
+                                    llvm::Type*, 
+                                    std::vector<int>&);
+    llvm::Value* VisitLocalVariableDecl(VariableDecl*);
+    llvm::Value* VisitGlobalVariableDecl(VariableDecl*);
+    
+ public:
     llvm::Value* VisitSizeofExpr(SizeofExpr*) override;
 
     llvm::Value* VisitPostIncExpr(PostIncExpr*) override;

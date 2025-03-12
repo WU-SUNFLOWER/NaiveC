@@ -159,6 +159,8 @@ class AstNode {
 
 class Program {
  public:
+    llvm::StringRef file_name_;
+
     // A program consists of serveral external declaration,
     // including functions, global variables...
     std::vector<std::shared_ptr<AstNode>> nodes_;
@@ -264,19 +266,24 @@ class VariableDecl : public AstNode {
     struct InitValue {
         std::shared_ptr<CType> decl_type;
         std::shared_ptr<AstNode> init_node;
-        /*
-            For example, 
-            `int ar[][][] = {
-                {
-                    {1, 2},
-                    {3, 4}
-                },
-                {
-                    {5, 6}
-                }
-            };`
-            Then, the `index_list` of element `6` is `[1, 0, 1]`.
-        */
+        // For example, 
+        // `int ar[][][] = {
+        //     {
+        //         {1, 2},
+        //         {3, 4}
+        //     },
+        //     {
+        //         {5, 6}
+        //     }
+        // };`
+        //
+        // Then, the `index_list` of element `6` is `[0, 1, 0, 1]`.
+        //
+        // The trick thing that you should forget out is that why
+        // we have to add a zero in the head of `index_list`.
+        //
+        // Please read the comment in `Parser::ParseDirectDeclarator` method
+        // to learn about the reason.
         std::vector<int> index_list;
     };
 

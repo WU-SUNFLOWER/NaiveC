@@ -45,6 +45,8 @@ bool Parser::IsFuncDecl() {
 
 std::shared_ptr<Program> Parser::ParseProgram() {
     auto prog = std::make_shared<Program>();
+    prog->file_name_ = lexer_.GetFileName();
+
     while (token_.GetType() != TokenType::kEOF) {
         if (IsFuncDecl()) {
             prog->nodes_.emplace_back(ParseFuncDecl());
@@ -263,7 +265,13 @@ std::shared_ptr<AstNode> Parser::ParseDirectDeclarator(std::shared_ptr<CType> ba
     if (token_.GetType() == TokenType::kEqual) {
         Advance();
         VariableDecl* raw_decl_node = llvm::dyn_cast<VariableDecl>(variable_decl_node.get());
-        std::vector<int> index_list;
+        // NOTE: Why we have to add a zero in each `index_list`?
+        // That's because when generating LLVM IR for initialize the member of an array, struct or union, 
+        // we have to complete a dereference operation at first, which is the meaning of this zero.
+        // For example, just like in C language, when we have an array pointer(`int (*p)[10];`),
+        // we have to deref this pointer(`*p`) at first,
+        // before we try to write or read an element from the array(`(*p)[idx]`).
+        std::vector<int> index_list = { 0 };
         ParseInitializer(raw_decl_node->init_values_, raw_decl_node->GetCType(), index_list, false);
     }
 
@@ -295,7 +303,8 @@ std::shared_ptr<CType> Parser::ParseDirectDeclaratorArraySuffix(
     bool is_global) 
 {
     // NOTE: 
-    // Don't delete this if statement, since it is the exit of recursion.
+    // Don't delete this if statement, 
+    // since it is the exit of recursion.
     if (token_.GetType() != TokenType::kLBracket) {
         return element_type;
     }
