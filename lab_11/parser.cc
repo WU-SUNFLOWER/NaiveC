@@ -68,11 +68,13 @@ std::shared_ptr<AstNode> Parser::ParseFuncDecl() {
 
     // This is a declaration of function.
     if (token_.GetType() == TokenType::kSemi) {
-        return sema_.SemaFuncDecl(func_name_token, func_type, nullptr);
+        auto node = sema_.SemaFuncDecl(func_name_token, func_type, nullptr);
+        return node;
     }
     // This is a definition of function.
     else {
-        return sema_.SemaFuncDecl(func_name_token, func_type, ParseBlockStmt());
+        auto node = sema_.SemaFuncDecl(func_name_token, func_type, ParseBlockStmt());
+        return node;
     }
 
     return nullptr;
@@ -1057,9 +1059,8 @@ std::shared_ptr<CType> Parser::ParseTypeName() {
         Consume(TokenType::kStar);
     }
 
-    if (token_.GetType() == TokenType::kLBracket) {
-        base_type = ParseDirectDeclaratorArraySuffix(base_type, false);
-    }
+    Token dummy = token_;
+    base_type = ParseDirectDeclaratorSuffix(dummy, base_type, false);
 
     return base_type;
 }
