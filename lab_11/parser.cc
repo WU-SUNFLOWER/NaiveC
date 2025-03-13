@@ -61,23 +61,39 @@ std::shared_ptr<Program> Parser::ParseProgram() {
 
 std::shared_ptr<AstNode> Parser::ParseFuncDecl() {
     auto base_type = ParseDeclSpec();
-    auto decl_node = ParseDeclarator(base_type, true);
 
-    auto func_name_token = decl_node->GetBoundToken();
-    auto func_type = decl_node->GetCType();
+    Token func_name_token;
+    std::shared_ptr<CType> func_type = nullptr;
+    std::shared_ptr<AstNode> func_body_node = nullptr;
 
-    // This is a declaration of function.
-    if (token_.GetType() == TokenType::kSemi) {
-        auto node = sema_.SemaFuncDecl(func_name_token, func_type, nullptr);
-        return node;
+    // NOTE:
+    // Since the variables in function's parameter list are in
+    // the same scope with the variables in function's body,
+    // we must enter this scope before we parse the function's
+    // parameter list!!!
+    sema_.EnterScope();
+    {
+        auto decl_node = ParseDeclarator(base_type, true);
+        
+        func_name_token = decl_node->GetBoundToken();
+        func_type = decl_node->GetCType();
+
+        if (token_.GetType() == TokenType::kLBrace) {
+            func_body_node = ParseBlockStmt();
+        }
     }
-    // This is a definition of function.
-    else {
-        auto node = sema_.SemaFuncDecl(func_name_token, func_type, ParseBlockStmt());
-        return node;
+    sema_.ExitScope();
+
+    // Create function declare node, 
+    // and add the function's name to symbol table.
+    auto func_decl_node = sema_.SemaFuncDecl(func_name_token, func_type, func_body_node);
+
+    // Eliminate potential redundant semicolons.
+    while (token_.GetType() == TokenType::kSemi) {
+        Advance();
     }
 
-    return nullptr;
+    return func_decl_node;
 }
 
 std::shared_ptr<AstNode> Parser::ParseStmt() {
@@ -214,7 +230,7 @@ std::shared_ptr<AstNode> Parser::ParseDirectDeclarator(std::shared_ptr<CType> ba
         case TokenType::kIdentifier: {
             Token identifier_tok = token_;
             Consume(TokenType::kIdentifier);
-            // Process array declarator, just like `A[1][2][3]...`
+            // Process declarator, just like `A[1][2][3]...` or `sum(int a, int b)`.
             base_type = ParseDirectDeclaratorSuffix(identifier_tok, base_type, is_global);
             // Create AST node.
             variable_decl_node = sema_.SemaVariableDeclNode(identifier_tok, base_type, is_global);

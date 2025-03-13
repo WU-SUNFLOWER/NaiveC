@@ -430,6 +430,20 @@ std::shared_ptr<AstNode> Sema::SemaFuncDecl(
     std::shared_ptr<CType> func_type, 
     std::shared_ptr<AstNode> block_stmt)
 {
+    llvm::StringRef func_name = token.GetContent();
+    std::shared_ptr<Symbol> func_symbol = scope_.FindObjectSymbolInCurrentEnv(func_name);
+
+    if (mode_ == Mode::kNormal && func_symbol) {
+        diag_engine_.Report(
+                llvm::SMLoc::getFromPointer(token.GetRawContentPtr()),
+                Diag::kErrRedefined,
+                func_name);
+    }
+
+    if (mode_ == Mode::kNormal) {
+        scope_.AddObjectSymbol(func_name, func_type);
+    }
+
     auto func_decl_node = std::make_shared<FuncDecl>();
     func_decl_node->block_stmt_ = block_stmt;
     func_decl_node->SetCType(func_type);
