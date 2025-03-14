@@ -214,6 +214,7 @@ std::shared_ptr<VariableDecl::InitValue> Sema::SemaDeclInitValueStruct(
     std::vector<int> &index_list,
     Token& token)
 {
+    /*
     if (mode_ == Mode::kNormal && 
         decl_type->GetKind() != init_node->GetCType()->GetKind()) 
     {
@@ -222,7 +223,8 @@ std::shared_ptr<VariableDecl::InitValue> Sema::SemaDeclInitValueStruct(
             Diag::kErrMiss,
             "same type");
         return nullptr;
-    }
+    }    
+    */
 
     auto init_value_struct = std::make_shared<VariableDecl::InitValue>();
     init_value_struct->decl_type = decl_type;
@@ -461,7 +463,9 @@ std::shared_ptr<AstNode> Sema::SemaFuncDecl(
         }
     }
 
-    // Case 2. We haven't meet the symbol `func_symbol` before.
+    // Case 2. We haven't meet the symbol `func_symbol` before,
+    //         or the body of the function bound with symbol `func_symbol` 
+    //         hasn't been defined.
     if (mode_ == Mode::kNormal) {
         scope_.AddObjectSymbol(func_name, func_type);
     }
@@ -502,6 +506,7 @@ std::shared_ptr<AstNode> Sema::SemaPostFuncCallExprNode(
     }
 
     // Check 3: Whether user provide argument with mismatched type.
+    /*
     for (int i = 0; i < func_params.size(); ++i) {
         if (mode_ == Mode::kNormal && 
             arg_nodes[i]->GetCType()->GetKind() != func_params[i].type->GetKind()) 
@@ -511,7 +516,9 @@ std::shared_ptr<AstNode> Sema::SemaPostFuncCallExprNode(
                                 Diag::kErrExpected,
                                 "argument type");
         }
-    }
+    }    
+    */
+
 
     auto func_call_node = std::make_shared<PostFuncCallExpr>();
     func_call_node->func_node_ = func_node;

@@ -55,6 +55,7 @@ class CodeGen : public Visitor, public TypeVisitor {
         return module_;
     }
 
+ public:
     llvm::Value* VisitProgram(Program*) override;
 
     llvm::Value* VisitDeclStmt(DeclStmt*) override;
@@ -82,7 +83,7 @@ class CodeGen : public Visitor, public TypeVisitor {
                                     std::vector<int>&);
     llvm::Value* VisitLocalVariableDecl(VariableDecl*);
     llvm::Value* VisitGlobalVariableDecl(VariableDecl*);
-    
+
  public:
     llvm::Value* VisitSizeofExpr(SizeofExpr*) override;
 
@@ -104,6 +105,9 @@ class CodeGen : public Visitor, public TypeVisitor {
     llvm::Type* VisitArrayType(CArrayType*) override;
     llvm::Type* VisitRecordType(CRecordType*) override;
     llvm::Type* VisitFuncType(CFuncType*) override;
+
+ private:
+    void CastValue(llvm::Value** value, llvm::Type* dest_type);
 };
 
 #endif  // CODEGEN_H_

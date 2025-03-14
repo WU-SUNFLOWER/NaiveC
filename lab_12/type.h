@@ -131,6 +131,11 @@ class CArrayType : public CType {
         return element_count_;
     }
 
+    void SetElementCount(int element_count) {
+        element_count_ = element_count;
+        size_ = element_count * element_type_->GetSize();
+    }
+
     llvm::Type* Accept(TypeVisitor* vis) {
         return vis->VisitArrayType(this);
     }

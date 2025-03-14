@@ -349,8 +349,10 @@ std::shared_ptr<CType> Parser::ParseDirectDeclaratorArraySuffix(
     int array_element_cnt = -1;
     Consume(TokenType::kLBracket);
     {
-        array_element_cnt = token_.GetValue();
-        Consume(TokenType::kNumber);
+        if (token_.GetType() != TokenType::kRBracket) {
+            array_element_cnt = token_.GetValue();
+            Consume(TokenType::kNumber);
+        }
     }
     Consume(TokenType::kRBracket);
 
@@ -375,6 +377,13 @@ std::shared_ptr<CType> Parser::ParseDirectDeclaratorFuncSuffix(
 
         auto param_base_type = ParseDeclSpec();
         auto param_decl_node = ParseDeclarator(param_base_type, false);
+        auto param_final_type = param_decl_node->GetCType();
+
+        if (param_final_type->GetKind() == CType::TypeKind::kArray) {
+            auto array_type = llvm::dyn_cast<CArrayType>(param_final_type.get());
+            auto pointer_type = std::make_shared<CPointerType>(array_type->GetElementType());
+            param_decl_node->SetCType(pointer_type);
+        }
 
         params.emplace_back(param_decl_node->GetCType(), 
                             param_decl_node->GetBoundToken().GetContent());
@@ -391,6 +400,7 @@ bool Parser::ParseInitializer(
     std::vector<int> &index_list,
     bool has_lbrace)
 {
+    // NOTE: This is the exit of recursion.
     if (token_.GetType() == TokenType::kRBrace) {
         if (!has_lbrace) {
             GetDiagEngine().Report(llvm::SMLoc::getFromPointer(token_.GetRawContentPtr()),
@@ -406,10 +416,13 @@ bool Parser::ParseInitializer(
         auto type_kind = decl_type->GetKind();
         switch (type_kind) {
             case CType::TypeKind::kArray: {
-                CArrayType* array_type = llvm::dyn_cast<CArrayType>(decl_type.get());
-                int element_count = array_type->GetElementCount();
-                for (int i = 0; i < element_count; ++i) {
-                    index_list.push_back(i);
+                auto array_type = llvm::dyn_cast<CArrayType>(decl_type.get());
+                int total_element_count = array_type->GetElementCount();
+                bool is_flex_array = total_element_count < 0;
+
+                int initialized_element_count = 0;
+                while (is_flex_array || initialized_element_count < total_element_count) {
+                    index_list.push_back(initialized_element_count);
                     bool end = ParseInitializer(init_values, 
                                                 array_type->GetElementType(), 
                                                 index_list, 
@@ -418,10 +431,16 @@ bool Parser::ParseInitializer(
                     if (end) {
                         break;
                     }
-                    if (i != element_count - 1 && token_.GetType() != TokenType::kRBrace) {
-                        Consume(TokenType::kComma);
+                    if (token_.GetType() == TokenType::kComma) {
+                        Advance();
                     }
+                    ++initialized_element_count;
                 }
+
+                if (is_flex_array) {
+                    array_type->SetElementCount(initialized_element_count);
+                }
+
                 break;
             }
             case CType::TypeKind::kRecord: {
@@ -441,8 +460,8 @@ bool Parser::ParseInitializer(
                             if (end) {
                                 break;
                             }
-                            if (i != member_count - 1 && token_.GetType() != TokenType::kRBrace) {
-                                Consume(TokenType::kComma);
+                            if (token_.GetType() == TokenType::kComma) {
+                                Advance();
                             }
                         }                       
                         break;

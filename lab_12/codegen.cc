@@ -67,26 +67,26 @@ llvm::Value *CodeGen::VisitBlockStmt(BlockStmt* block_stmt) {
         ret = node->Accept(this);
     }
     return ret;
-    // return nullptr;
 }
 
 llvm::Value *CodeGen::VisitIfStmt(IfStmt* if_stmt) {
-    auto cond_block = llvm::BasicBlock::Create(context_, "cond", GetCurrentFunc());
-    auto then_block = llvm::BasicBlock::Create(context_, "then", GetCurrentFunc());
-    auto final_block = llvm::BasicBlock::Create(context_, "final", GetCurrentFunc());
-
+    auto cond_block = llvm::BasicBlock::Create(context_, "cond");
+    auto then_block = llvm::BasicBlock::Create(context_, "then");
     llvm::BasicBlock* else_block = nullptr;
     if (if_stmt->else_node_) {
-        else_block = llvm::BasicBlock::Create(context_, "else", GetCurrentFunc());
+        else_block = llvm::BasicBlock::Create(context_, "else");
     }
+    auto final_block = llvm::BasicBlock::Create(context_, "final");
 
     // Don't forget to let our program jump into cond block at first!
     ir_builder_.CreateBr(cond_block);
 
     // Let's deal with cond block at first.
+    cond_block->insertInto(GetCurrentFunc());
     ir_builder_.SetInsertPoint(cond_block);
     // Generate the instructions of condition expression itself.
     llvm::Value* cond_expr_val = if_stmt->cond_node_->Accept(this);
+    CastValue(&cond_expr_val, ir_builder_.getInt32Ty());
     // Generate a compare instruction, 
     // to check whether the return value of condition expression is true.
     llvm::Value* is_cond_expr_val_true = ir_builder_.CreateICmpNE(cond_expr_val, ir_builder_.getInt32(0));
@@ -94,18 +94,21 @@ llvm::Value *CodeGen::VisitIfStmt(IfStmt* if_stmt) {
     ir_builder_.CreateCondBr(is_cond_expr_val_true, then_block, if_stmt->else_node_ ? else_block : final_block);
 
     // Generate the instructions of then block.
+    then_block->insertInto(GetCurrentFunc());
     ir_builder_.SetInsertPoint(then_block);
     if_stmt->then_node_->Accept(this);
     ir_builder_.CreateBr(final_block);
 
     // Generate the instructions of else block.
     if (if_stmt->else_node_) {
+        else_block->insertInto(GetCurrentFunc());
         ir_builder_.SetInsertPoint(else_block);
         if_stmt->else_node_->Accept(this);
         ir_builder_.CreateBr(final_block);
     }
 
     // Let our code generator to generate later code after if statement in final block...
+    final_block->insertInto(GetCurrentFunc());
     ir_builder_.SetInsertPoint(final_block);
 
     return nullptr;
@@ -135,6 +138,7 @@ llvm::Value *CodeGen::VisitForStmt(ForStmt* for_stmt) {
     ir_builder_.SetInsertPoint(cond_block);
     if (for_stmt->cond_node_) {
         llvm::Value* cond_result = for_stmt->cond_node_->Accept(this);
+        CastValue(&cond_result, ir_builder_.getInt32Ty());
         llvm::Value* is_cond_result_true = ir_builder_.CreateICmpNE(cond_result, ir_builder_.getInt32(0));
         ir_builder_.CreateCondBr(is_cond_result_true, body_block, final_block);
     } else {
@@ -261,17 +265,20 @@ llvm::Value *CodeGen::VisitBinaryExpr(BinaryExpr* binary_expr) {
         // left && right
         case BinaryOpCode::kLogicalAnd: {
             auto left = binary_expr->left_->Accept(this);
+            CastValue(&left, ir_builder_.getInt32Ty());
             auto is_left_true = ir_builder_.CreateICmpNE(left, ir_builder_.getInt32(0));
 
-            auto next_block = llvm::BasicBlock::Create(context_, "next_block", GetCurrentFunc());
-            auto false_block = llvm::BasicBlock::Create(context_, "false_block", GetCurrentFunc());
-            auto merge_block = llvm::BasicBlock::Create(context_, "merge_block", GetCurrentFunc());
+            auto next_block = llvm::BasicBlock::Create(context_, "next_block");
+            auto false_block = llvm::BasicBlock::Create(context_, "false_block");
+            auto merge_block = llvm::BasicBlock::Create(context_, "merge_block");
 
             ir_builder_.CreateCondBr(is_left_true, next_block, false_block);
 
             // Build next_block
+            next_block->insertInto(GetCurrentFunc());
             ir_builder_.SetInsertPoint(next_block);
             auto right = binary_expr->right_->Accept(this);
+            CastValue(&right, ir_builder_.getInt32Ty());
             auto is_right_true = ir_builder_.CreateICmpNE(right, ir_builder_.getInt32(0));
             is_right_true = ir_builder_.CreateZExt(is_right_true, ir_builder_.getInt32Ty());
             ir_builder_.CreateBr(merge_block);
@@ -281,10 +288,12 @@ llvm::Value *CodeGen::VisitBinaryExpr(BinaryExpr* binary_expr) {
             next_block = ir_builder_.GetInsertBlock();
 
             // Build false_block
+            false_block->insertInto(GetCurrentFunc());
             ir_builder_.SetInsertPoint(false_block);
             ir_builder_.CreateBr(merge_block);
 
             // Build merge_block
+            merge_block->insertInto(GetCurrentFunc());
             ir_builder_.SetInsertPoint(merge_block);
             auto phi = ir_builder_.CreatePHI(ir_builder_.getInt32Ty(), 2);
             phi->addIncoming(ir_builder_.getInt32(0), false_block);
@@ -295,27 +304,32 @@ llvm::Value *CodeGen::VisitBinaryExpr(BinaryExpr* binary_expr) {
         // left || right
         case BinaryOpCode::kLogicalOr: {
             auto left = binary_expr->left_->Accept(this);
+            CastValue(&left, ir_builder_.getInt32Ty());
             auto is_left_true = ir_builder_.CreateICmpNE(left, ir_builder_.getInt32(0));
 
-            auto next_block = llvm::BasicBlock::Create(context_, "next_block", GetCurrentFunc());
-            auto true_block = llvm::BasicBlock::Create(context_, "true_block", GetCurrentFunc());
-            auto merge_block = llvm::BasicBlock::Create(context_, "merge_block", GetCurrentFunc());
+            auto next_block = llvm::BasicBlock::Create(context_, "next_block");
+            auto true_block = llvm::BasicBlock::Create(context_, "true_block");
+            auto merge_block = llvm::BasicBlock::Create(context_, "merge_block");
 
             ir_builder_.CreateCondBr(is_left_true, true_block, next_block);
 
             // Build next_block
+            next_block->insertInto(GetCurrentFunc());
             ir_builder_.SetInsertPoint(next_block);
             auto right = binary_expr->right_->Accept(this);
+            CastValue(&right, ir_builder_.getInt32Ty());
             auto is_right_true = ir_builder_.CreateICmpNE(right, ir_builder_.getInt32(0));
             is_right_true = ir_builder_.CreateZExt(is_right_true, ir_builder_.getInt32Ty());
             ir_builder_.CreateBr(merge_block);
             next_block = ir_builder_.GetInsertBlock();
 
             // Build true_block
+            true_block->insertInto(GetCurrentFunc());
             ir_builder_.SetInsertPoint(true_block);
             ir_builder_.CreateBr(merge_block);
 
             // Build merge_block
+            merge_block->insertInto(GetCurrentFunc());
             ir_builder_.SetInsertPoint(merge_block);
             auto phi = ir_builder_.CreatePHI(ir_builder_.getInt32Ty(), 2);
             phi->addIncoming(ir_builder_.getInt32(1), true_block);
@@ -488,24 +502,30 @@ llvm::Value *CodeGen::VisitBinaryExpr(BinaryExpr* binary_expr) {
 }
 
 llvm::Value *CodeGen::VisitTernaryExpr(TernaryExpr* expr) {
-    auto then_block = llvm::BasicBlock::Create(context_, "ternary.then", GetCurrentFunc());
-    auto els_block = llvm::BasicBlock::Create(context_, "ternary.else", GetCurrentFunc());
-    auto merge_block = llvm::BasicBlock::Create(context_, "ternary.merge", GetCurrentFunc());
+    auto then_block = llvm::BasicBlock::Create(context_, "ternary.then");
+    auto els_block = llvm::BasicBlock::Create(context_, "ternary.else");
+    auto merge_block = llvm::BasicBlock::Create(context_, "ternary.merge");
 
     auto cond_val = expr->cond_->Accept(this);
+    CastValue(&cond_val, ir_builder_.getInt32Ty());
     auto is_cond_true = ir_builder_.CreateICmpNE(cond_val, ir_builder_.getInt32(0));
     ir_builder_.CreateCondBr(is_cond_true, then_block, els_block);
 
+    then_block->insertInto(GetCurrentFunc());
     ir_builder_.SetInsertPoint(then_block);
+
     auto then_value = expr->then_->Accept(this);
     then_block = ir_builder_.GetInsertBlock();
     ir_builder_.CreateBr(merge_block);
 
+    els_block->insertInto(GetCurrentFunc());
     ir_builder_.SetInsertPoint(els_block);
+
     auto els_value = expr->els_->Accept(this);
     els_block = ir_builder_.GetInsertBlock();
     ir_builder_.CreateBr(merge_block);
 
+    merge_block->insertInto(GetCurrentFunc());
     ir_builder_.SetInsertPoint(merge_block);
     auto phi = ir_builder_.CreatePHI(expr->GetCType()->Accept(this), 2);
     phi->addIncoming(then_value, then_block);
@@ -561,13 +581,25 @@ llvm::Constant *CodeGen::GetInitialValueForGlobalVariable(
         auto init_value_struct = GetInitValueStructByIndexList(decl_node, index_list);
         if (init_value_struct) {
             auto init_value = init_value_struct->init_node->Accept(this);
+            auto init_type = init_value_struct->decl_type->Accept(this);
+            assert(type == init_type);
+            CastValue(&init_value, init_type);
             return llvm::dyn_cast<llvm::Constant>(init_value);
         }
         return ir_builder_.getInt32(0);
     }
     else if (type->isPointerTy()) {
-        auto pointer_type = llvm::dyn_cast<llvm::PointerType>(type);
-        return llvm::ConstantPointerNull::get(pointer_type);
+        auto init_value_struct = GetInitValueStructByIndexList(decl_node, index_list);
+        if (init_value_struct) {
+            auto init_value = init_value_struct->init_node->Accept(this);
+            auto init_type = init_value_struct->decl_type->Accept(this);
+            assert(type == init_type);
+            CastValue(&init_value, init_type);
+            return llvm::dyn_cast<llvm::Constant>(init_value);
+        } else {
+            auto pointer_type = llvm::dyn_cast<llvm::PointerType>(type);
+            return llvm::ConstantPointerNull::get(pointer_type);            
+        }
     }
     else if (type->isStructTy()) {
         auto struct_type = llvm::dyn_cast<llvm::StructType>(type);
@@ -624,7 +656,6 @@ llvm::Value* CodeGen::VisitGlobalVariableDecl(VariableDecl* decl_node) {
     return variable_addr;
 }
 
-
 llvm::Value *CodeGen::VisitLocalVariableDecl(VariableDecl* decl_node) {
     auto variable_type = decl_node->GetCType();
     auto variable_llvm_type = decl_node->GetCType()->Accept(this);
@@ -646,7 +677,9 @@ llvm::Value *CodeGen::VisitLocalVariableDecl(VariableDecl* decl_node) {
     if (nr_init_values > 0) {
         if (nr_init_values == 1) {
             auto init_value_struct = decl_node->init_values_[0];
+            auto init_value_type = decl_node->init_values_[0]->decl_type->Accept(this);
             auto init_value = init_value_struct->init_node->Accept(this);
+            CastValue(&init_value, init_value_type);
             ir_builder_.CreateStore(init_value, variable_addr);
         }
         else if (llvm::ArrayType* arr_llvm_type = llvm::dyn_cast<llvm::ArrayType>(variable_llvm_type)) {
@@ -657,11 +690,14 @@ llvm::Value *CodeGen::VisitLocalVariableDecl(VariableDecl* decl_node) {
                     llvm_index_list.push_back(ir_builder_.getInt32(index));
                 }
                 // Create code to compute the address and value of this element.
-                llvm::Value* element_addr = ir_builder_.CreateInBoundsGEP(
+                auto element_addr = ir_builder_.CreateInBoundsGEP(
                                                             arr_llvm_type,
                                                             variable_addr,
                                                             llvm_index_list);
-                llvm::Value* element_value = init_value_struct->init_node->Accept(this);
+                auto element_value = init_value_struct->init_node->Accept(this);
+                // Force cast the type of element value.
+                auto element_type = init_value_struct->decl_type->Accept(this);
+                CastValue(&element_value, element_type);
                 // Create store code.
                 ir_builder_.CreateStore(element_value, element_addr);
             }
@@ -676,13 +712,13 @@ llvm::Value *CodeGen::VisitLocalVariableDecl(VariableDecl* decl_node) {
                         for (auto index : init_value_struct->index_list) {
                             llvm_index_list.push_back(ir_builder_.getInt32(index));
                         }
-
-                        llvm::Value* member_addr = ir_builder_.CreateInBoundsGEP(
-                                                                    struct_llvm_type,
-                                                                    variable_addr,
-                                                                    llvm_index_list);
-                        llvm::Value* member_value = init_value_struct->init_node->Accept(this);
-
+                        auto member_addr = ir_builder_.CreateInBoundsGEP(
+                                                                struct_llvm_type,
+                                                                variable_addr,
+                                                                llvm_index_list);
+                        auto member_value = init_value_struct->init_node->Accept(this);
+                        auto member_type = init_value_struct->decl_type->Accept(this);
+                        CastValue(&member_value, member_type);
                         ir_builder_.CreateStore(member_value, member_addr);
                     }
                     break;
@@ -764,17 +800,27 @@ llvm::Value *CodeGen::VisitPostDecExpr(PostDecExpr* expr) {
 
 llvm::Value *CodeGen::VisitPostSubscript(PostSubscriptExpr* expr) {
     llvm::Type* element_type = expr->GetCType()->Accept(this);
-    llvm::Value* array = expr->sub_node_->Accept(this);
+    llvm::Value* target = expr->sub_node_->Accept(this);
     llvm::Value* index = expr->index_node_->Accept(this);
 
-    // Q: Why we should call `getPointerOperand()` method of `array` here?
-    // A: Get the first address of our target.
-    // For example, since `array` is an array pointer, for accessing `array[index]`, 
-    // we should get the array's starting address at first,
-    // instead of the value of the first element in this array, i.e. `*array`.
-    llvm::Value* array_addr = llvm::dyn_cast<llvm::LoadInst>(array)->getPointerOperand();
-    // Compute the address of `array[index]`.
-    llvm::Value* element_addr = ir_builder_.CreateInBoundsGEP(element_type, array_addr, { index });
+    llvm::Type* target_type = target->getType();
+    llvm::Value* element_addr = nullptr;
+    if (target_type->isArrayTy()) {
+        // Q: Why we should call `getPointerOperand()` method of `array` here?
+        // A: Get the first address of our target.
+        // For example, since `array` is an array pointer, for accessing `array[index]`, 
+        // we should get the array's starting address at first,
+        // instead of the value of the first element in this array, i.e. `*array`.
+        llvm::Value* array_addr = llvm::dyn_cast<llvm::LoadInst>(target)->getPointerOperand();
+        // Compute the address of `array[index]`.
+        element_addr = ir_builder_.CreateInBoundsGEP(element_type, array_addr, { index });
+    } 
+    else if (target_type->isPointerTy()) {
+        element_addr = ir_builder_.CreateInBoundsGEP(element_type, target, { index });
+    }
+    else {
+        assert(0);
+    }
 
     return ir_builder_.CreateLoad(element_type, element_addr);
 }
@@ -906,17 +952,23 @@ llvm::Type* CodeGen::VisitRecordType(CRecordType* ctype) {
 }
 
 llvm::Value *CodeGen::VisitFuncDecl(FuncDecl* func_decl) {
+    // We assume that you cannot nest a new function within a function.
     ClearVariableScope();
 
     auto func_type = llvm::dyn_cast<CFuncType>(func_decl->GetCType().get());
     auto func_llvm_type = llvm::dyn_cast<llvm::FunctionType>(func_type->Accept(this));
     auto func_name = func_type->GetFuncName();
 
+    auto func = module_->getFunction(func_name);
+    
     // 1.Create LLVM function instance.
-    auto func = llvm::Function::Create(func_llvm_type, 
-                                       llvm::GlobalValue::ExternalLinkage, 
-                                       func_name,
-                                       module_.get());
+    if (!func) {
+        func = llvm::Function::Create(func_llvm_type, 
+                                      llvm::GlobalValue::ExternalLinkage, 
+                                      func_name,
+                                      module_.get());
+    }
+
     // 2. Save function instance to global variable map.
     AddGlobalVariable(func_name, func, func_llvm_type);
 
@@ -951,9 +1003,39 @@ llvm::Value *CodeGen::VisitFuncDecl(FuncDecl* func_decl) {
         }
 
         // 6.Generate inner code for function's block statement.
-        func_decl->block_stmt_->Accept(this);        
+        func_decl->block_stmt_->Accept(this);     
+        assert(GetCurrentFunc() == func);
+
+        // 7. Generate default `return` instruction for function's block statement.
+        const auto& back_block = func->back();
+        if (back_block.empty() || 
+            !llvm::isa<llvm::ReturnInst>(back_block.back())) 
+        {
+            switch (func_type->GetRetType()->GetKind()) {
+                case CType::TypeKind::kVoid: {
+                    ir_builder_.CreateRetVoid();
+                    break;                    
+                }
+                case CType::TypeKind::kInt: {
+                    ir_builder_.CreateRet(ir_builder_.getInt32(0));
+                    break;                    
+                }
+                case CType::TypeKind::kPointer: {
+                    auto ret_type = func_llvm_type->getReturnType();
+                    auto pointer_type = llvm::dyn_cast<llvm::PointerType>(ret_type);
+                    auto null_ret_val = llvm::ConstantPointerNull::get(pointer_type);
+                    ir_builder_.CreateRet(null_ret_val);
+                    break;                    
+                }
+                default: {
+                    assert(0);
+                }
+            }
+        }
     }
     PopScope();
+
+    assert(GetCurrentFunc() == func);
 
     assert(!llvm::verifyFunction(*func, &llvm::outs()));
     assert(!llvm::verifyModule(*module_, &llvm::outs()));
@@ -963,12 +1045,22 @@ llvm::Value *CodeGen::VisitFuncDecl(FuncDecl* func_decl) {
 
 llvm::Value *CodeGen::VisitPostFuncCallExpr(PostFuncCallExpr* func_call_expr) {
     auto func_node = func_call_expr->func_node_;
+    auto func_type = llvm::dyn_cast<CFuncType>(func_node->GetCType().get());
     auto func_llvm_inst = llvm::dyn_cast<llvm::Function>(func_node->Accept(this));
-    auto func_llvm_type = llvm::dyn_cast<llvm::FunctionType>(func_node->GetCType()->Accept(this));
+    auto func_llvm_type = llvm::dyn_cast<llvm::FunctionType>(func_type->Accept(this));
+
+    const auto& func_params = func_type->GetParams();
+    const auto& func_args = func_call_expr->arg_nodes_;
+    assert(func_params.size() == func_args.size());
 
     llvm::SmallVector<llvm::Value*> args;
-    for (const auto& arg_node : func_call_expr->arg_nodes_) {
-        args.push_back(arg_node->Accept(this));
+    for (int i = 0; i < func_args.size(); ++i) {
+        // Force cast the type of argument.
+        auto arg_value = func_args[i]->Accept(this);
+        auto param_type = func_params[i].type->Accept(this);
+        CastValue(&arg_value, param_type);
+        // Add the argument to argument list.
+        args.push_back(arg_value);
     }
 
     return ir_builder_.CreateCall(func_llvm_type, func_llvm_inst, args);
@@ -994,4 +1086,27 @@ llvm::Type *CodeGen::VisitFuncType(CFuncType* func_type) {
     }
 
     return llvm::FunctionType::get(ret_llvm_type, param_llvm_types, false);
+}
+
+void CodeGen::CastValue(llvm::Value** value, llvm::Type* dest_type) {
+    auto cur_type = (*value)->getType();
+    if (cur_type == dest_type) {
+        return;
+    }
+
+    if (cur_type->isIntegerTy()) {
+        if (dest_type->isPointerTy()) {
+            *value = ir_builder_.CreateIntToPtr(*value, dest_type);
+        }
+    }
+    else if (cur_type->isPointerTy()) {
+        if (dest_type->isIntegerTy()) {
+            *value = ir_builder_.CreatePtrToInt(*value, dest_type);
+        }
+    }
+    else if (cur_type->isArrayTy()) {
+        if (dest_type->isPointerTy()) {
+            *value = llvm::dyn_cast<llvm::LoadInst>(*value)->getPointerOperand();
+        }
+    }
 }
