@@ -1,39 +1,115 @@
-# Lab_08 Let's Support More Operators And Pointer Type.
+# Lab_10 Struct and Union
+
+## What about struct and union
+
+### The basic usage of struct and union
+
+```C
+struct List {
+		int val;
+		struct List *next;
+};
+
+struct List n;
+n.val = 10;
+n.next = 0;
+
+struct List head;
+head.val = 0;
+head.next = &n; 
+
+/// union
+union Value {
+	float f;
+	double d;
+	int i;
+};
+
+union Value v;
+v.f = 1.0f;
+v.d = 2.0;
+v.i = 10;
+```
+
+### The scope and name space of struct
+
+First, we should look the code in struct's definition as a new scope.
+
+Second, the type name(i.e. tag) of a defined struct is managed in a special name space, different with the name space of normal variable and function.
+
+According to first and second, the following C program is valid:
+
+```c
+struct A {int A;};
+int A;
+```
+
+Third, for the code in struct's definition, we assume that the struct has already been defined, so we can use it validly.
+
+According to first and second, the following C program is valid:
+```C
+struct List {
+    int val;
+    struct List *next;
+};
+```
 
 ## Tasks
 
-### Task 1
+### Task1
 
-Support commonly used **unary, binary, and ternary expressions** in C language.
+Support the declaration of a struct type.
 
-Like `i++`, `i--`, `++i`, `--i`, `i += 3`, `i *= 3`, `a ? b : c`, `a, b, c`, `sizeof(a)`, ...
+```ebnf
+decl-spec  ::= "int" | struct-or-union-specifier
+struct-or-union-specifier ::= struct-or-union identifier "{" (decl-spec declarator(, declarator)* ";")+ "}"
+														  struct-or-union identifier
+struct-or-union := "struct" | "union"
+```
 
-### Task 2
+Just like array, in code generating stage, we should build the corresponding LLVM type for user's defined struct.
 
-Introduce **the pointer type** into our compiler.
+```C++
+llvm::Type * CodeGen::VisitRecordType(CRecordType *ty) {
+    llvm::StructType *structType = nullptr;
+    structType = llvm::StructType::getTypeByName(context, ty->GetName());
+    if (structType) {
+        return structType;
+    }
+    structType = llvm::StructType::create(context, ty->GetName());
+    // structType->setName(ty->GetName());
 
-This task can be spilt into the following steps:
-- Define **the corresponding class** of C language pointer type in our compiler.
-- Enable our Lexer and Parser to process **variable declaration with pointer type**, like `int** p` or `int *q`.
-- Enable our Lexer and Parser to process **the address operator** and **the dereference operator**, like `&a` or `*a`.
-    - **NOTE:** 
-    - We can only get the address of a lvalue with the address operator in C language.
-    - Which means we have to add an additional field to our AST node, to mark up the output result of an AST node is lvalue or rvalue. 
-    - So that our **semantic checker** can check whether an address acquisition operation is legal.
-- Enable our code generator to generate the correct LLVM IR for **the address operator** and **the dereference operator**.
-    - **NOTE:**
-    - Although we have implement some add/sub operators, including `+`, `-`, `+=` and `-=`, we shouldn't forget that the add/sub operation for pointer is different with normal variable. 
-    - For example, Assuming `p` is an int pointer, then `p+1` means adding a four-byte offset to the address `p`.
+    TagKind tagKind = ty->GetTagKind();
 
-When all the works are done, the program like this can be processed by our compiler:
+    if (tagKind == TagKind::kStruct) {
+        llvm::SmallVector<llvm::Type *> vec;
+        for (const auto &m : ty->GetMembers()) {
+            vec.push_back(m.ty->Accept(this));
+        }
+        structType->setBody(vec);
+    }else {
+        llvm::SmallVector<llvm::Type *> vec;
+        const auto &members = ty->GetMembers();
+        int idx = ty->GetMaxElementIdx();
+        structType->setBody(members[idx].ty->Accept(this));
+    }
+    // structType->print(llvm::outs());
+    return structType;
+}
+```
 
-```C
-int a = 10;
-int *p = &a;
-*p++;
-++*p;
-p++;
-p--
-++p;
---p;
+### Task2
+
+Support the initialization of a struct-type variable.
+
+Further refine the `Parser::ParseInitializer` and `CodeGen::VisitVariableDecl` function.
+
+### Task3
+
+Support the `.` and `->` operator for struct variable and struct pointer.
+
+```ebnf
+postfix     ::= primary | postfix ("++"|"--") | postfix "[" expr "]"
+								| postfix "." identifier
+								| postfix "->" identifier
 ```
