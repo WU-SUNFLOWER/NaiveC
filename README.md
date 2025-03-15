@@ -19,3 +19,7 @@ There are the introductions to these labs.
 - Lab_10 [Struct and Union](./lab_10/README.md)
 - Lab_11 [Function and Global Variable](./lab_11/README.md)
 - Lab_12 [Run More Complex Test Cases](./lab_12/README.md)
+
+# Reference
+
+https://www.bilibili.com/cheese/play/ss31453
