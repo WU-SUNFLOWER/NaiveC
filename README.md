@@ -15,3 +15,7 @@ There are the introductions to these labs.
 - Lab_06 [Introduce Relationship Expressions & FOR Statement into Our Compiler](./lab_06/README.md)
 - Lab_07 [Introduce Comment & Logical Operator & Bitwise Operator into Our Compiler](./lab_07/README.md)
 - Lab_08 [Let's Support More Operators And Pointer Type](./lab_08/README.md)
+- Lab_09 [Array and Its Initialization](./lab_09/README.md)
+- Lab_10 [Struct and Union](./lab_10/README.md)
+- Lab_11 [Function and Global Variable](./lab_11/README.md)
+- Lab_12 [Run More Complex Test Cases](./lab_12/README.md)

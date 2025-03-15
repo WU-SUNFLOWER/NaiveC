@@ -1,39 +1,42 @@
 # Lab_08 Let's Support More Operators And Pointer Type.
 
+## How to determine the type of an array in C language?
+
+Ok, at first, one-dimensional array is easy to understand for everyone.
+
+```C
+int a[10] = {0,1,2};
+```
+
+However, what about the array with more than one dimension?  Just like this:
+
+```C
+int a[2][3] = { {1, 2, 3}, {4, 5, 6} };
+```
+
+While analyzing the dimensions of an array, we should start at its innermost dimension, i.e., we should **look from right to left**.
+
+In this example:
+- 1st dimension: We have 3 integers, i.e. `int[3]`
+- 2nd dimension: We have 2 `int[3]`, i.e. `int [2][3]`.
+
+⚠This example implies that we need to use **Recursion Method(Backtracing Method)** to determine the type of an array.
+
+As a comparsion, let's recall how we determined the type of a pointer.
+
+For example:
+
+```C
+int** p;
+```
+
+We just need to **look from left to right** simply.
+- 1st dimension: We have a pointer which point to `int` data, i.e. `int*`.
+- 2nd dimension: We have a pointer which point to `int*` data, i.e. `int**`.
+
 ## Tasks
 
 ### Task 1
 
-Support commonly used **unary, binary, and ternary expressions** in C language.
-
-Like `i++`, `i--`, `++i`, `--i`, `i += 3`, `i *= 3`, `a ? b : c`, `a, b, c`, `sizeof(a)`, ...
 
 ### Task 2
-
-Introduce **the pointer type** into our compiler.
-
-This task can be spilt into the following steps:
-- Define **the corresponding class** of C language pointer type in our compiler.
-- Enable our Lexer and Parser to process **variable declaration with pointer type**, like `int** p` or `int *q`.
-- Enable our Lexer and Parser to process **the address operator** and **the dereference operator**, like `&a` or `*a`.
-    - **NOTE:** 
-    - We can only get the address of a lvalue with the address operator in C language.
-    - Which means we have to add an additional field to our AST node, to mark up the output result of an AST node is lvalue or rvalue. 
-    - So that our **semantic checker** can check whether an address acquisition operation is legal.
-- Enable our code generator to generate the correct LLVM IR for **the address operator** and **the dereference operator**.
-    - **NOTE:**
-    - Although we have implement some add/sub operators, including `+`, `-`, `+=` and `-=`, we shouldn't forget that the add/sub operation for pointer is different with normal variable. 
-    - For example, Assuming `p` is an int pointer, then `p+1` means adding a four-byte offset to the address `p`.
-
-When all the works are done, the program like this can be processed by our compiler:
-
-```C
-int a = 10;
-int *p = &a;
-*p++;
-++*p;
-p++;
-p--
-++p;
---p;
-```
