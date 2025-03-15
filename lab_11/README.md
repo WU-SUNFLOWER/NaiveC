@@ -1,39 +1,98 @@
-# Lab_08 Let's Support More Operators And Pointer Type.
+# Lab_11 Function and Global Variable
 
-## Tasks
+## Function
 
-### Task 1
-
-Support commonly used **unary, binary, and ternary expressions** in C language.
-
-Like `i++`, `i--`, `++i`, `--i`, `i += 3`, `i *= 3`, `a ? b : c`, `a, b, c`, `sizeof(a)`, ...
-
-### Task 2
-
-Introduce **the pointer type** into our compiler.
-
-This task can be spilt into the following steps:
-- Define **the corresponding class** of C language pointer type in our compiler.
-- Enable our Lexer and Parser to process **variable declaration with pointer type**, like `int** p` or `int *q`.
-- Enable our Lexer and Parser to process **the address operator** and **the dereference operator**, like `&a` or `*a`.
-    - **NOTE:** 
-    - We can only get the address of a lvalue with the address operator in C language.
-    - Which means we have to add an additional field to our AST node, to mark up the output result of an AST node is lvalue or rvalue. 
-    - So that our **semantic checker** can check whether an address acquisition operation is legal.
-- Enable our code generator to generate the correct LLVM IR for **the address operator** and **the dereference operator**.
-    - **NOTE:**
-    - Although we have implement some add/sub operators, including `+`, `-`, `+=` and `-=`, we shouldn't forget that the add/sub operation for pointer is different with normal variable. 
-    - For example, Assuming `p` is an int pointer, then `p+1` means adding a four-byte offset to the address `p`.
-
-When all the works are done, the program like this can be processed by our compiler:
+### The usage of function
 
 ```C
-int a = 10;
-int *p = &a;
-*p++;
-++*p;
-p++;
-p--
-++p;
---p;
+// The definition of function
+int add(int a, int b) {
+		return a+b;
+}
+
+int main() {
+	// Call function.
+	return add(1,2);
+}
+```
+
+### The symbol of function
+
+In our compiler, we treat function as first-class citizen **in an approximate sense**.
+
+And we use **the symbol table of root scope** to maintain the symbol of function and global variable.
+
+### Grammar
+
+1. We treat that our program consists of functions.
+```EBNF
+prog       ::= func-def +
+```
+
+2. The declaration and definition of a function.
+```EBNF
+func-def   ::= decl-spec declarator block-stmt
+
+declarator ::= "*"* direct-declarator
+direct-declarator ::= identifier | direct-declarator "[" assign "]" 
+											| direct-declarator "(" parameter-type-list? ")"
+parameter-type-list ::= decl-spec declarator ("," decl-spec declarator)* (", " "...")?
+```
+
+3. The call expression for function
+```EBNF
+postfix     ::= primary | postfix ("++"|"--") | postfix "[" expr "]"
+								| postfix "." identifier
+								| postfix "->" identifier 
+								| postfix "(" arg-expr-list? ")"
+arg-expr-list := assign ("," assign)*
+```
+
+### Build LLVM type
+
+```CPP
+llvm::FunctionType * funcTy = llvm::dyn_cast<llvm::FunctionType>(decl->ty->Accept(this));
+func = Function::Create(funcTy, GlobalValue::ExternalLinkage, cFuncTy->GetName(), module.get());
+```
+
+## Global variable
+
+### The usage of global variable
+
+```C
+int a;  // The declaration of a global variable.
+
+int main(){
+	a = 3;
+	return a;
+}
+```
+
+### The symbol of global variable
+
+We use **the symbol table of root scope** to maintain the symbol of function and global variable.
+
+### Grammar
+
+1. Now, we treat that our program consists of a serials of functions and global variables.
+```ebnf
+prog          ::= (external-decl)+
+external-decl ::= func-def | decl-stmt
+```
+
+2. We reuse the rules for parsing normal variable, to parse global variable.
+```ebnf
+decl-stmt  ::= decl-spec init-declarator-list? ";"
+```
+
+### Build LLVM type
+
+```cpp
+llvm::GlobalVariable *globalVar = new llvm::GlobalVariable(
+                                                *module, 
+                                                ty, 
+                                                false, 
+                                                llvm::GlobalValue::ExternalLinkage, 
+                                                nullptr, 
+                                                text);
 ```

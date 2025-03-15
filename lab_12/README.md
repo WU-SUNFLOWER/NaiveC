@@ -1,39 +1,68 @@
-# Lab_08 Let's Support More Operators And Pointer Type.
+# Lab_12 Run More Complex Test Cases
+
+In this lab, we need to fix some problems of our compiler, and enable it to run more complex test cases in `test` directory.
 
 ## Tasks
 
 ### Task 1
 
-Support commonly used **unary, binary, and ternary expressions** in C language.
-
-Like `i++`, `i--`, `++i`, `--i`, `i += 3`, `i *= 3`, `a ? b : c`, `a, b, c`, `sizeof(a)`, ...
+Support `void` type in C language, since user may define a function without returned value.
 
 ### Task 2
 
-Introduce **the pointer type** into our compiler.
+Support insert default return IR instrcution in the tail(i.e. the final basic block) of a function, when the user don't write an explicit define statement in the input program.
 
-This task can be spilt into the following steps:
-- Define **the corresponding class** of C language pointer type in our compiler.
-- Enable our Lexer and Parser to process **variable declaration with pointer type**, like `int** p` or `int *q`.
-- Enable our Lexer and Parser to process **the address operator** and **the dereference operator**, like `&a` or `*a`.
-    - **NOTE:** 
-    - We can only get the address of a lvalue with the address operator in C language.
-    - Which means we have to add an additional field to our AST node, to mark up the output result of an AST node is lvalue or rvalue. 
-    - So that our **semantic checker** can check whether an address acquisition operation is legal.
-- Enable our code generator to generate the correct LLVM IR for **the address operator** and **the dereference operator**.
-    - **NOTE:**
-    - Although we have implement some add/sub operators, including `+`, `-`, `+=` and `-=`, we shouldn't forget that the add/sub operation for pointer is different with normal variable. 
-    - For example, Assuming `p` is an int pointer, then `p+1` means adding a four-byte offset to the address `p`.
+### Task 3
 
-When all the works are done, the program like this can be processed by our compiler:
+Support array definition without explicit size.
+
+For example:
 
 ```C
-int a = 10;
-int *p = &a;
-*p++;
-++*p;
-p++;
-p--
-++p;
---p;
+int ar[] = { 0, 1, 2, 3, 4, 5 };
+```
+
+### Task 4
+
+Let our compiler to allow user declare a function (without body) at first, and define it later.
+
+For example, the following code should be legal:
+```C
+int sum(int a, int b);
+
+int sum(int a, int b) {
+    return a + b;
+}
+```
+
+### Task 5
+
+Support some implicit type conversion:
+- Convert pointer type into integer type.
+- Convert integer type into pointer type.
+- Convert array type into pointer type.
+
+Then, the following programs should be legal:
+```C
+int square(int* p) {
+    if (p != 0) {
+        return (*p) * (*p);
+    }
+    return 0;
+}
+```
+
+```C
+int get_ar_sum(int a[], int len) {
+    int sum = 0;
+    for (int i = 0; i < len; ++i) {
+        sum += a[i];
+    }
+    return sum;
+}
+
+int main() {
+    int b[] = { 1, 2, 3, 4 };
+    return get_ar_sum(b, sizeof(b) / sizeof(int));
+}
 ```
