@@ -97,14 +97,22 @@ llvm::Value *CodeGen::VisitIfStmt(IfStmt* if_stmt) {
     then_block->insertInto(GetCurrentFunc());
     ir_builder_.SetInsertPoint(then_block);
     if_stmt->then_node_->Accept(this);
-    ir_builder_.CreateBr(final_block);
+
+    auto current_block = ir_builder_.GetInsertBlock();
+    if (current_block->empty() || !current_block->back().isTerminator()) {
+        ir_builder_.CreateBr(final_block);
+    }
 
     // Generate the instructions of else block.
     if (if_stmt->else_node_) {
         else_block->insertInto(GetCurrentFunc());
         ir_builder_.SetInsertPoint(else_block);
         if_stmt->else_node_->Accept(this);
-        ir_builder_.CreateBr(final_block);
+
+        auto current_block = ir_builder_.GetInsertBlock();
+        if (current_block->empty() || !current_block->back().isTerminator()) {
+            ir_builder_.CreateBr(final_block);
+        }
     }
 
     // Let our code generator to generate later code after if statement in final block...
@@ -151,7 +159,11 @@ llvm::Value *CodeGen::VisitForStmt(ForStmt* for_stmt) {
     if (for_stmt->body_node_) {
         for_stmt->body_node_->Accept(this);
     }
-    ir_builder_.CreateBr(inc_block);
+
+    auto current_block = ir_builder_.GetInsertBlock();
+    if (current_block->empty() || !current_block->back().isTerminator()) {
+        ir_builder_.CreateBr(inc_block);
+    }
 
     // Build inc block.
     inc_block->insertInto(GetCurrentFunc());
